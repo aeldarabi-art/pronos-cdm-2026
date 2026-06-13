@@ -55,8 +55,15 @@ function sanitizePseudo(pseudo) {
 
 function formatDate(dateStr) {
   const d = new Date(dateStr);
-  const options = { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" };
-  return d.toLocaleString("fr-FR", options);
+  const options = {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Africa/Casablanca"
+  };
+  return d.toLocaleString("fr-FR", options) + " (Maroc)";
 }
 
 function isMatchStarted(match) {
