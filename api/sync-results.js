@@ -97,6 +97,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
+  const debug = req.query?.debug === "1";
+
   try {
     // 1. Charger les matchs locaux (matches.json) pour faire la correspondance
     const matchesRes = await fetch(`${getBaseUrl(req)}/matches.json`);
@@ -116,6 +118,27 @@ export default async function handler(req, res) {
 
     const apiData = await apiRes.json();
     const events = apiData.events || [];
+
+    // DEBUG MODE: list all tournament names + World Cup matches regardless of status
+    if (debug) {
+      const tournamentNames = [...new Set(events.map(e => e.tournament?.name))];
+      const wcEvents = events.filter(e =>
+        (e.tournament?.name || "").toLowerCase().includes("world cup")
+      ).map(e => ({
+        tournament: e.tournament?.name,
+        season: e.season?.year,
+        home: e.homeTeam?.name,
+        away: e.awayTeam?.name,
+        homeScore: e.homeScore,
+        awayScore: e.awayScore,
+        status: e.status
+      }));
+      return res.status(200).json({
+        totalEvents: events.length,
+        sampleTournaments: tournamentNames.slice(0, 30),
+        worldCupEvents: wcEvents
+      });
+    }
 
     // 3. Filtrer uniquement les matchs FIFA World Cup 2026 terminés
     const finishedResults = {};
