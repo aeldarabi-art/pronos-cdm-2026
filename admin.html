@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin - Résultats</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { padding: 20px; max-width: 700px; margin: 0 auto; }
+    .admin-card { background:#fff; border-radius:16px; padding:20px; box-shadow:var(--shadow); margin-bottom:14px; }
+    .admin-card h3 { margin-bottom:10px; font-size:15px; }
+    .admin-row { display:flex; gap:10px; align-items:center; }
+    .admin-row input { width:70px; margin-bottom:0; }
+    .admin-row span { font-weight:700; }
+    .admin-row button { width:auto; padding:10px 16px; }
+    .top-bar { display:flex; gap:10px; margin-bottom:20px; }
+    .top-bar input { margin-bottom:0; }
+  </style>
+</head>
+<body>
+  <div class="logo">⚽ <span>Admin Résultats</span></div>
+  <p class="subtitle">Entre le code du groupe puis saisis les scores réels. Le classement se recalcule automatiquement.</p>
+
+  <div class="top-bar">
+    <input type="text" id="input-admin-code" placeholder="Code du groupe" maxlength="8" />
+    <button id="btn-load-group" class="btn btn-primary">Charger</button>
+  </div>
+
+  <div id="admin-matches"></div>
+
+  <div id="toast" class="toast"></div>
+
+  <script type="module">
+    import { db, doc, setDoc, getDoc, collection } from "./firebase.js";
+
+    const $ = (s) => document.querySelector(s);
+    let MATCHES = [];
+    let groupCode = "";
+
+    async function loadMatches() {
+      const res = await fetch("./matches.json");
+      MATCHES = await res.json();
+    }
+
+    function showToast(msg, type = "") {
+      const t = $("#toast");
+      t.textContent = msg;
+      t.className = "toast show " + type;
+      setTimeout(() => t.className = "toast", 2000);
+    }
+
+    async function renderAdmin() {
+      const container = $("#admin-matches");
+      container.innerHTML = "";
+
+      for (const match of MATCHES) {
+        const resultRef = doc(db, "groups", groupCode, "results", match.id);
+        const snap = await getDoc(resultRef);
+        const existing = snap.exists() ? snap.data() : null;
+
+        const card = document.createElement("div");
+        card.className = "admin-card";
+        card.innerHTML = `
+          <h3>${match.homeFlag} ${match.home} vs ${match.away} ${match.awayFlag}</h3>
+          <div class="admin-row">
+            <span>${match.home}</span>
+            <input type="number" min="0" id="home-${match.id}" value="${existing ? existing.home : ''}" />
+            <span>-</span>
+            <input type="number" min="0" id="away-${match.id}" value="${existing ? existing.away : ''}" />
+            <span>${match.away}</span>
+            <button class="btn btn-primary btn-save" data-id="${match.id}">Enregistrer</button>
+          </div>
+        `;
+        container.appendChild(card);
+      }
+
+      document.querySelectorAll(".btn-save").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const id = btn.dataset.id;
+          const home = parseInt($(`#home-${id}`).value);
+          const away = parseInt($(`#away-${id}`).value);
+          if (isNaN(home) || isNaN(away)) {
+            showToast("Entre un score valide", "error");
+            return;
+          }
+          await setDoc(doc(db, "groups", groupCode, "results", id), { home, away });
+          showToast("Résultat enregistré !", "success");
+        });
+      });
+    }
+
+    $("#btn-load-group").addEventListener("click", async () => {
+      groupCode = $("#input-admin-code").value.trim().toUpperCase();
+      if (!groupCode) return;
+
+      const groupSnap = await getDoc(doc(db, "groups", groupCode));
+      if (!groupSnap.exists()) {
+        showToast("Groupe introuvable", "error");
+        return;
+      }
+      await renderAdmin();
+      showToast(`Groupe "${groupSnap.data().name}" chargé`, "success");
+    });
+
+    loadMatches();
+  </script>
+</body>
+</html>
