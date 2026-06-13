@@ -106,5 +106,6 @@ en temps réel grâce à `onSnapshot`.
 - Le pseudo est stocké en `localStorage` (pas de mot de passe — usage entre amis).
 - Deux personnes ne peuvent pas avoir le même pseudo *dans le même groupe*
   (le doc Firestore `members/{pseudo}` sera partagé). Conseille à tes amis
+  test
   d'utiliser des pseudos uniques.
 - Un pronostic ne peut plus être modifié dès que `new Date() >= match.date`.
