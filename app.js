@@ -19,11 +19,11 @@ let MATCHES = [];          // chargé depuis matches.json
 let currentUser = null;    // { pseudo }
 let currentGroup = null;   // { code, name }
 let predictions = {};      // { matchId: { type, home, away, result } }
-let groupMembers = [];      // [{pseudo, points}]
+let groupMembers = [];     // [{pseudo, points}]
 let unsubscribeMembers = null;
 let unsubscribeMatches = null;
 let activeMatchForModal = null;
-let liveMatchesData = {};   // résultats des matchs depuis Firestore (overrides matches.json)
+let liveMatchesData = {};  // résultats des matchs depuis Firestore
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -43,9 +43,11 @@ function showToast(message, type = "") {
 function generateGroupCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
+
   for (let i = 0; i < 6; i++) {
     code += chars[Math.floor(Math.random() * chars.length)];
   }
+
   return code;
 }
 
@@ -55,6 +57,7 @@ function sanitizePseudo(pseudo) {
 
 function formatDate(dateStr) {
   const d = new Date(dateStr);
+
   const options = {
     weekday: "short",
     day: "numeric",
@@ -63,6 +66,7 @@ function formatDate(dateStr) {
     minute: "2-digit",
     timeZone: "Africa/Casablanca"
   };
+
   return d.toLocaleString("fr-FR", options) + " (Maroc)";
 }
 
@@ -84,8 +88,13 @@ function getMatchResult(homeScore, awayScore) {
    - Faux = 0 pt
    ============================================================ */
 function calculatePoints(prediction, realHome, realAway) {
-  if (realHome === null || realAway === null || realHome === undefined || realAway === undefined) {
-    return null; // match pas encore joué / pas de résultat saisi
+  if (
+    realHome === null ||
+    realAway === null ||
+    realHome === undefined ||
+    realAway === undefined
+  ) {
+    return null;
   }
 
   const realResult = getMatchResult(realHome, realAway);
@@ -94,10 +103,13 @@ function calculatePoints(prediction, realHome, realAway) {
     if (prediction.home === realHome && prediction.away === realAway) {
       return { points: 5, label: "Score exact" };
     }
+
     const predResult = getMatchResult(prediction.home, prediction.away);
+
     if (predResult === realResult) {
       return { points: 3, label: "Bon résultat" };
     }
+
     return { points: 0, label: "Raté" };
   }
 
@@ -105,14 +117,35 @@ function calculatePoints(prediction, realHome, realAway) {
     if (prediction.result === realResult) {
       return { points: 3, label: "Bon résultat" };
     }
+
     return { points: 0, label: "Raté" };
   }
 
   return null;
 }
 
+function formatPredictionText(prediction, match) {
+  if (!prediction) return "";
+
+  if (prediction.type === "score") {
+    return `Ton prono : ${prediction.home} - ${prediction.away}`;
+  }
+
+  if (prediction.type === "result") {
+    const labels = {
+      "1": match.home,
+      "N": "Nul",
+      "2": match.away
+    };
+
+    return `Ton prono : ${labels[prediction.result] || prediction.result}`;
+  }
+
+  return "";
+}
+
 /* ============================================================
-   CHARGEMENT DES MATCHS (JSON local)
+   CHARGEMENT DES MATCHS
    ============================================================ */
 async function loadMatches() {
   try {
@@ -144,9 +177,9 @@ async function loadMatches() {
 async function createGroup(groupName, pseudo) {
   let code = generateGroupCode();
 
-  // S'assurer que le code n'existe pas déjà (collision improbable mais on check)
   let exists = await getDoc(doc(db, "groups", code));
   let tries = 0;
+
   while (exists.exists() && tries < 5) {
     code = generateGroupCode();
     exists = await getDoc(doc(db, "groups", code));
@@ -172,6 +205,7 @@ async function createGroup(groupName, pseudo) {
 /* ---------- REJOINDRE UN GROUPE ---------- */
 async function joinGroup(code, pseudo) {
   code = code.trim().toUpperCase();
+
   const groupRef = doc(db, "groups", code);
   const groupSnap = await getDoc(groupRef);
 
@@ -211,6 +245,7 @@ async function savePrediction(matchId, predictionData) {
 /* ---------- CHARGER MES PRONOSTICS ---------- */
 async function loadMyPredictions() {
   predictions = {};
+
   const predsRef = collection(db, "groups", currentGroup.code, "predictions");
   const q = query(predsRef, where("pseudo", "==", currentUser.pseudo));
   const snap = await getDocs(q);
@@ -226,11 +261,14 @@ function listenToResults() {
   if (unsubscribeMatches) unsubscribeMatches();
 
   const resultsRef = collection(db, "groups", currentGroup.code, "results");
+
   unsubscribeMatches = onSnapshot(resultsRef, (snapshot) => {
     liveMatchesData = {};
+
     snapshot.forEach((docSnap) => {
       liveMatchesData[docSnap.id] = docSnap.data();
     });
+
     renderMatches();
     recalculateAndUpdateRanking();
   });
@@ -238,7 +276,6 @@ function listenToResults() {
 
 /* ---------- CALCUL & MAJ DU CLASSEMENT ---------- */
 async function recalculateAndUpdateRanking() {
-  // Récupère tous les pronostics du groupe
   const predsRef = collection(db, "groups", currentGroup.code, "predictions");
   const predsSnap = await getDocs(predsRef);
 
@@ -247,22 +284,27 @@ async function recalculateAndUpdateRanking() {
   predsSnap.forEach((docSnap) => {
     const pred = docSnap.data();
     const result = liveMatchesData[pred.matchId];
+
     if (!result) return;
 
     const calc = calculatePoints(pred, result.home, result.away);
+
     if (calc === null) return;
 
-    if (!pointsByPseudo[pred.pseudo]) pointsByPseudo[pred.pseudo] = 0;
+    if (!pointsByPseudo[pred.pseudo]) {
+      pointsByPseudo[pred.pseudo] = 0;
+    }
+
     pointsByPseudo[pred.pseudo] += calc.points;
   });
 
-  // Met à jour Firestore pour chaque membre (seulement si différent)
   const membersRef = collection(db, "groups", currentGroup.code, "members");
   const membersSnap = await getDocs(membersRef);
 
   for (const memberDoc of membersSnap.docs) {
     const member = memberDoc.data();
     const newPoints = pointsByPseudo[member.pseudo] || 0;
+
     if (member.points !== newPoints) {
       await updateDoc(doc(db, "groups", currentGroup.code, "members", member.pseudo), {
         points: newPoints
@@ -271,17 +313,21 @@ async function recalculateAndUpdateRanking() {
   }
 }
 
-/* ---------- LISTENER MEMBRES (CLASSEMENT TEMPS REEL) ---------- */
+/* ---------- LISTENER MEMBRES ---------- */
 function listenToMembers() {
   if (unsubscribeMembers) unsubscribeMembers();
 
   const membersRef = collection(db, "groups", currentGroup.code, "members");
+
   unsubscribeMembers = onSnapshot(membersRef, (snapshot) => {
     groupMembers = [];
+
     snapshot.forEach((docSnap) => {
       groupMembers.push(docSnap.data());
     });
+
     groupMembers.sort((a, b) => (b.points || 0) - (a.points || 0));
+
     renderRanking();
   });
 }
@@ -306,15 +352,23 @@ function renderMatches() {
 
     const started = isMatchStarted(match);
     const result = liveMatchesData[match.id];
-    const hasResult = result && result.home !== undefined && result.home !== null;
+    const hasResult =
+      result &&
+      result.home !== undefined &&
+      result.home !== null &&
+      result.away !== undefined &&
+      result.away !== null;
+
     const myPred = predictions[match.id];
 
     const card = document.createElement("div");
     card.className = "match-card";
+
     if (started) card.classList.add("locked");
     if (myPred) card.classList.add("has-prediction");
 
     let statusHtml = "";
+
     if (hasResult) {
       statusHtml = `<span class="match-status status-finished">Terminé</span>`;
     } else if (started) {
@@ -324,26 +378,36 @@ function renderMatches() {
     }
 
     let bottomInfo = "";
+
     if (hasResult) {
-      bottomInfo = `<span class="match-result-tag">${result.home} - ${result.away}</span>`;
+      bottomInfo = `<span class="match-result-tag">Résultat : ${result.home} - ${result.away}</span>`;
+
       if (myPred) {
+        const predText = formatPredictionText(myPred, match);
+        bottomInfo += `<span class="match-prediction-tag">✓ ${predText}</span>`;
+
         const calc = calculatePoints(myPred, result.home, result.away);
+
         if (calc) {
-          let cls = calc.points === 5 ? "win-exact" : calc.points === 3 ? "win-result" : "win-zero";
-          bottomInfo += `<span class="match-points-tag ${cls}">+${calc.points} pts</span>`;
+          const cls =
+            calc.points === 5
+              ? "win-exact"
+              : calc.points === 3
+                ? "win-result"
+                : "win-zero";
+
+          bottomInfo += `<span class="match-points-tag ${cls}">+${calc.points} pts — ${calc.label}</span>`;
         }
+      } else {
+        bottomInfo += `<span class="match-prediction-tag" style="color:#9ca3af;">Aucun pronostic saisi</span>`;
       }
     } else if (myPred) {
-      let predText = "";
-      if (myPred.type === "score") {
-        predText = `Pronostic : ${myPred.home} - ${myPred.away}`;
-      } else {
-        const labels = { "1": match.home, "N": "Nul", "2": match.away };
-        predText = `Pronostic : ${labels[myPred.result]}`;
-      }
+      const predText = formatPredictionText(myPred, match);
       bottomInfo = `<span class="match-prediction-tag">✓ ${predText}</span>`;
     } else if (!started) {
       bottomInfo = `<span class="match-prediction-tag" style="color:#9ca3af;">Pas encore pronostiqué</span>`;
+    } else {
+      bottomInfo = `<span class="match-prediction-tag" style="color:#9ca3af;">Aucun pronostic saisi</span>`;
     }
 
     card.innerHTML = `
@@ -358,6 +422,7 @@ function renderMatches() {
           <span class="team-flag">${match.awayFlag}</span>
         </div>
       </div>
+
       <div class="match-meta">
         <span class="match-date">${formatDate(match.date)}</span>
         ${statusHtml}
@@ -381,16 +446,24 @@ function renderRanking() {
   container.innerHTML = "";
 
   if (groupMembers.length === 0) {
-    container.innerHTML = `<p style="text-align:center;color:var(--text-light);padding:20px;">Aucun membre pour le moment.</p>`;
+    container.innerHTML = `
+      <p style="text-align:center;color:var(--text-light);padding:20px;">
+        Aucun membre pour le moment.
+      </p>
+    `;
     return;
   }
 
   groupMembers.forEach((member, index) => {
     const item = document.createElement("div");
     item.className = "ranking-item";
-    if (member.pseudo === currentUser.pseudo) item.classList.add("is-me");
+
+    if (member.pseudo === currentUser.pseudo) {
+      item.classList.add("is-me");
+    }
 
     let medal = "";
+
     if (index === 0) medal = "🥇";
     else if (index === 1) medal = "🥈";
     else if (index === 2) medal = "🥉";
@@ -398,8 +471,12 @@ function renderRanking() {
 
     item.innerHTML = `
       <div class="rank-position">${medal}</div>
-      <div class="rank-name">${member.pseudo}${member.pseudo === currentUser.pseudo ? " (toi)" : ""}</div>
-      <div class="rank-points">${member.points || 0} <small>pts</small></div>
+      <div class="rank-name">
+        ${member.pseudo}${member.pseudo === currentUser.pseudo ? " (toi)" : ""}
+      </div>
+      <div class="rank-points">
+        ${member.points || 0} <small>pts</small>
+      </div>
     `;
 
     container.appendChild(item);
@@ -425,15 +502,15 @@ function openPredictionModal(match) {
   $("#score-home-label").textContent = match.home;
   $("#score-away-label").textContent = match.away;
 
-  // Reset UI
-  $$(".mode-btn").forEach(b => b.classList.remove("active"));
-  $$(".result-opt").forEach(b => b.classList.remove("selected"));
+  $$(".mode-btn").forEach((button) => button.classList.remove("active"));
+  $$(".result-opt").forEach((button) => button.classList.remove("selected"));
+
   $("#input-score-home").value = "";
   $("#input-score-away").value = "";
   $("#modal-error").textContent = "";
 
-  // Pré-remplir si pronostic existant
   const existing = predictions[match.id];
+
   if (existing) {
     if (existing.type === "score") {
       selectedMode = "score";
@@ -445,16 +522,18 @@ function openPredictionModal(match) {
     }
   }
 
-  // Appliquer le mode actif
-  $$(".mode-btn").forEach(b => {
-    b.classList.toggle("active", b.dataset.mode === selectedMode);
+  $$(".mode-btn").forEach((button) => {
+    button.classList.toggle("active", button.dataset.mode === selectedMode);
   });
-  $$(".predict-mode").forEach(p => p.classList.remove("active"));
+
+  $$(".predict-mode").forEach((panel) => panel.classList.remove("active"));
   $(`#mode-${selectedMode}`).classList.add("active");
 
   if (selectedResult) {
-    $$(".result-opt").forEach(b => {
-      if (b.dataset.val === selectedResult) b.classList.add("selected");
+    $$(".result-opt").forEach((button) => {
+      if (button.dataset.val === selectedResult) {
+        button.classList.add("selected");
+      }
     });
   }
 
@@ -469,7 +548,6 @@ function closeModal() {
 async function handleSavePrediction() {
   if (!activeMatchForModal) return;
 
-  // Vérifier si le match a commencé entre-temps
   if (isMatchStarted(activeMatchForModal)) {
     $("#modal-error").textContent = "Ce match a déjà commencé, impossible de pronostiquer.";
     return;
@@ -482,16 +560,25 @@ async function handleSavePrediction() {
       $("#modal-error").textContent = "Choisis 1, Nul ou 2.";
       return;
     }
-    predictionData = { type: "result", result: selectedResult };
-  } else {
-    const home = parseInt($("#input-score-home").value);
-    const away = parseInt($("#input-score-away").value);
 
-    if (isNaN(home) || isNaN(away) || home < 0 || away < 0) {
+    predictionData = {
+      type: "result",
+      result: selectedResult
+    };
+  } else {
+    const home = parseInt($("#input-score-home").value, 10);
+    const away = parseInt($("#input-score-away").value, 10);
+
+    if (Number.isNaN(home) || Number.isNaN(away) || home < 0 || away < 0) {
       $("#modal-error").textContent = "Entre un score valide pour les deux équipes.";
       return;
     }
-    predictionData = { type: "score", home, away };
+
+    predictionData = {
+      type: "score",
+      home,
+      away
+    };
   }
 
   try {
@@ -509,21 +596,25 @@ async function handleSavePrediction() {
    NAVIGATION ENTRE ECRANS
    ============================================================ */
 function showScreen(screenId) {
-  $$(".screen").forEach(s => s.classList.remove("active"));
+  $$(".screen").forEach((screen) => screen.classList.remove("active"));
   $(`#${screenId}`).classList.add("active");
 }
 
 function switchTab(tabName) {
-  $$(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tabName));
-  $$(".tab-content").forEach(c => c.classList.remove("active"));
+  $$(".tab-btn").forEach((button) => {
+    button.classList.toggle("active", button.dataset.tab === tabName);
+  });
+
+  $$(".tab-content").forEach((content) => content.classList.remove("active"));
   $(`#tab-${tabName}`).classList.add("active");
 }
 
 /* ============================================================
-   PERSISTENCE LOCALE (session)
+   PERSISTENCE LOCALE
    ============================================================ */
 function saveSession() {
   localStorage.setItem("wc2026_pseudo", currentUser.pseudo);
+
   if (currentGroup) {
     localStorage.setItem("wc2026_group_code", currentGroup.code);
     localStorage.setItem("wc2026_group_name", currentGroup.name);
@@ -543,17 +634,24 @@ function loadSession() {
 
   if (pseudo) {
     currentUser = { pseudo };
+
     if (groupCode && groupName) {
-      currentGroup = { code: groupCode, name: groupName };
+      currentGroup = {
+        code: groupCode,
+        name: groupName
+      };
+
       return "main";
     }
+
     return "group";
   }
+
   return "login";
 }
 
 /* ============================================================
-   ENTREE DANS LE GROUPE (apres login/join/create)
+   ENTREE DANS LE GROUPE
    ============================================================ */
 async function enterGroup() {
   $("#current-pseudo").textContent = currentUser.pseudo;
@@ -573,24 +671,27 @@ async function enterGroup() {
    EVENT LISTENERS
    ============================================================ */
 function setupEventListeners() {
-  // Login
   $("#btn-login").addEventListener("click", () => {
     const pseudo = sanitizePseudo($("#input-pseudo").value);
+
     if (!pseudo) {
       $("#login-error").textContent = "Merci d'entrer un pseudo.";
       return;
     }
+
     currentUser = { pseudo };
     $("#welcome-pseudo").textContent = pseudo;
+
     saveSession();
     showScreen("screen-group");
   });
 
   $("#input-pseudo").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") $("#btn-login").click();
+    if (e.key === "Enter") {
+      $("#btn-login").click();
+    }
   });
 
-  // Logout depuis ecran groupe
   $("#btn-logout-1").addEventListener("click", () => {
     currentUser = null;
     clearSession();
@@ -598,27 +699,31 @@ function setupEventListeners() {
     showScreen("screen-login");
   });
 
-  // Logout depuis app principale
   $("#btn-logout-2").addEventListener("click", () => {
     if (unsubscribeMembers) unsubscribeMembers();
     if (unsubscribeMatches) unsubscribeMatches();
+
     currentUser = null;
     currentGroup = null;
     predictions = {};
+
     clearSession();
     $("#input-pseudo").value = "";
+
     showScreen("screen-login");
   });
 
-  // Créer un groupe
   $("#btn-create-group").addEventListener("click", async () => {
     const groupName = $("#input-group-name").value.trim();
+
     if (!groupName) {
       $("#group-error").textContent = "Entre un nom de groupe.";
       return;
     }
+
     $("#btn-create-group").disabled = true;
     $("#group-error").textContent = "";
+
     try {
       currentGroup = await createGroup(groupName, currentUser.pseudo);
       saveSession();
@@ -632,15 +737,17 @@ function setupEventListeners() {
     }
   });
 
-  // Rejoindre un groupe
   $("#btn-join-group").addEventListener("click", async () => {
     const code = $("#input-join-code").value.trim();
+
     if (!code) {
       $("#group-error").textContent = "Entre un code d'invitation.";
       return;
     }
+
     $("#btn-join-group").disabled = true;
     $("#group-error").textContent = "";
+
     try {
       currentGroup = await joinGroup(code, currentUser.pseudo);
       saveSession();
@@ -653,36 +760,45 @@ function setupEventListeners() {
     }
   });
 
-  // Tabs
-  $$(".tab-btn").forEach(btn => {
-    btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+  $$(".tab-btn").forEach((button) => {
+    button.addEventListener("click", () => switchTab(button.dataset.tab));
   });
 
-  // Modal - mode switch
-  $$(".mode-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      selectedMode = btn.dataset.mode;
-      $$(".mode-btn").forEach(b => b.classList.toggle("active", b === btn));
-      $$(".predict-mode").forEach(p => p.classList.remove("active"));
+  $$(".mode-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedMode = button.dataset.mode;
+
+      $$(".mode-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn === button);
+      });
+
+      $$(".predict-mode").forEach((panel) => panel.classList.remove("active"));
       $(`#mode-${selectedMode}`).classList.add("active");
+
       $("#modal-error").textContent = "";
     });
   });
 
-  // Modal - result options
-  $$(".result-opt").forEach(btn => {
-    btn.addEventListener("click", () => {
-      selectedResult = btn.dataset.val;
-      $$(".result-opt").forEach(b => b.classList.toggle("selected", b === btn));
+  $$(".result-opt").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedResult = button.dataset.val;
+
+      $$(".result-opt").forEach((btn) => {
+        btn.classList.toggle("selected", btn === button);
+      });
+
       $("#modal-error").textContent = "";
     });
   });
 
-  // Modal - close / save
   $("#modal-close").addEventListener("click", closeModal);
+
   $("#modal-overlay").addEventListener("click", (e) => {
-    if (e.target === $("#modal-overlay")) closeModal();
+    if (e.target === $("#modal-overlay")) {
+      closeModal();
+    }
   });
+
   $("#btn-save-prediction").addEventListener("click", handleSavePrediction);
 }
 
@@ -691,6 +807,7 @@ function setupEventListeners() {
    ============================================================ */
 async function init() {
   setupEventListeners();
+
   await loadMatches();
 
   const screen = loadSession();
