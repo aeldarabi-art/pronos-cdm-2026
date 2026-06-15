@@ -109,3 +109,4 @@ en temps réel grâce à `onSnapshot`.
   test
   d'utiliser des pseudos uniques.
 - Un pronostic ne peut plus être modifié dès que `new Date() >= match.date`.
+Déploiement initial Vercel.
