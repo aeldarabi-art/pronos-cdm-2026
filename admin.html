@@ -3,104 +3,621 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin - Résultats</title>
+  <title>Admin - Résultats et pronostics</title>
+
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+
   <style>
-    body { padding: 20px; max-width: 700px; margin: 0 auto; }
-    .admin-card { background:#fff; border-radius:16px; padding:20px; box-shadow:var(--shadow); margin-bottom:14px; }
-    .admin-card h3 { margin-bottom:10px; font-size:15px; }
-    .admin-row { display:flex; gap:10px; align-items:center; }
-    .admin-row input { width:70px; margin-bottom:0; }
-    .admin-row span { font-weight:700; }
-    .admin-row button { width:auto; padding:10px 16px; }
-    .top-bar { display:flex; gap:10px; margin-bottom:20px; }
-    .top-bar input { margin-bottom:0; }
+    body {
+      padding: 20px;
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    .admin-help {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #374151;
+      line-height: 1.5;
+    }
+
+    .top-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .top-bar input {
+      margin-bottom: 0;
+      flex: 1;
+      min-width: 220px;
+    }
+
+    .admin-section-title {
+      margin: 24px 0 10px;
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .admin-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
+    }
+
+    .admin-card h3 {
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+
+    .admin-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .admin-row input,
+    .admin-row select {
+      margin-bottom: 0;
+    }
+
+    .admin-row input[type="number"] {
+      width: 80px;
+    }
+
+    .admin-row button {
+      width: auto;
+      padding: 10px 16px;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-left: 6px;
+      margin-top: 4px;
+    }
+
+    .badge-past {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .badge-open {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .badge-scored {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .admin-divider {
+      height: 1px;
+      background: #e5e7eb;
+      margin: 16px 0;
+    }
   </style>
 </head>
+
 <body>
-  <div class="logo">⚽ <span>Admin Résultats</span></div>
-  <p class="subtitle">Entre le code du groupe puis saisis les scores réels. Le classement se recalcule automatiquement.</p>
+  <div class="logo">⚽ <span>Admin</span></div>
+
+  <p class="subtitle">
+    Saisis les scores réels et, si besoin, rattrape les pronostics oubliés pour les participants.
+  </p>
+
+  <div class="admin-help">
+    Cette page permet à l’admin de saisir un pronostic pour un participant, même si le match a déjà commencé ou est terminé.
+    Cette fonction doit servir uniquement à corriger une omission de saisie. Les utilisateurs restent bloqués après le début du match sur la page normale.
+  </div>
 
   <div class="top-bar">
     <input type="text" id="input-admin-code" placeholder="Code du groupe" maxlength="8" />
     <button id="btn-load-group" class="btn btn-primary">Charger</button>
   </div>
 
-  <div id="admin-matches"></div>
+  <div id="admin-content" class="hidden">
+    <div class="admin-section-title">Rattrapage d’un pronostic oublié</div>
+
+    <div class="admin-card">
+      <h3>Ajouter ou modifier le pronostic d’un participant</h3>
+
+      <p class="muted">
+        Choisis un participant existant ou saisis un nouveau pseudo, puis sélectionne le match et le pronostic.
+        Si un pronostic existe déjà pour ce participant et ce match, il sera remplacé.
+      </p>
+
+      <div class="admin-row">
+        <select id="select-member"></select>
+        <input type="text" id="input-new-pseudo" placeholder="Ou nouveau pseudo" maxlength="20" />
+      </div>
+
+      <div class="admin-row">
+        <select id="select-match"></select>
+      </div>
+
+      <div class="admin-row">
+        <select id="select-prediction-type">
+          <option value="result">Résultat 1/N/2</option>
+          <option value="score">Score exact</option>
+        </select>
+
+        <select id="select-result">
+          <option value="1">Victoire équipe 1</option>
+          <option value="N">Match nul</option>
+          <option value="2">Victoire équipe 2</option>
+        </select>
+
+        <input type="number" min="0" id="input-pred-home" placeholder="Score 1" class="hidden" />
+        <input type="number" min="0" id="input-pred-away" placeholder="Score 2" class="hidden" />
+
+        <button id="btn-save-admin-prediction" class="btn btn-primary">
+          Enregistrer le pronostic
+        </button>
+      </div>
+    </div>
+
+    <div class="admin-section-title">Saisie des scores réels</div>
+    <div id="admin-matches"></div>
+  </div>
 
   <div id="toast" class="toast"></div>
 
   <script type="module">
-    import { db, doc, setDoc, getDoc, collection } from "./firebase.js";
+    import {
+      db,
+      doc,
+      setDoc,
+      getDoc,
+      getDocs,
+      updateDoc,
+      collection
+    } from "./firebase.js";
 
-    const $ = (s) => document.querySelector(s);
+    const $ = (selector) => document.querySelector(selector);
+
     let MATCHES = [];
     let groupCode = "";
+    let members = [];
+    let resultsByMatch = {};
 
     async function loadMatches() {
-      const res = await fetch("./matches.json");
-      MATCHES = await res.json();
+      const response = await fetch("./matches.json");
+      MATCHES = await response.json();
+      MATCHES.sort((a, b) => new Date(a.date) - new Date(b.date));
     }
 
-    function showToast(msg, type = "") {
-      const t = $("#toast");
-      t.textContent = msg;
-      t.className = "toast show " + type;
-      setTimeout(() => t.className = "toast", 2000);
+    function showToast(message, type = "") {
+      const toast = $("#toast");
+      toast.textContent = message;
+      toast.className = "toast show " + type;
+
+      setTimeout(() => {
+        toast.className = "toast";
+      }, 2500);
     }
 
-    async function renderAdmin() {
+    function cleanPseudo(value) {
+      return value
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 20);
+    }
+
+    function formatDate(dateStr) {
+      const date = new Date(dateStr);
+
+      return date.toLocaleString("fr-FR", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Africa/Casablanca"
+      }) + " (Maroc)";
+    }
+
+    function isMatchStarted(match) {
+      return new Date() >= new Date(match.date);
+    }
+
+    function getMatchResult(homeScore, awayScore) {
+      if (homeScore > awayScore) return "1";
+      if (homeScore < awayScore) return "2";
+      return "N";
+    }
+
+    function calculatePoints(prediction, realHome, realAway) {
+      if (
+        realHome === null ||
+        realAway === null ||
+        realHome === undefined ||
+        realAway === undefined
+      ) {
+        return null;
+      }
+
+      const realResult = getMatchResult(realHome, realAway);
+
+      if (prediction.type === "score") {
+        if (prediction.home === realHome && prediction.away === realAway) {
+          return { points: 5, label: "Score exact" };
+        }
+
+        const predictedResult = getMatchResult(prediction.home, prediction.away);
+
+        if (predictedResult === realResult) {
+          return { points: 3, label: "Bon résultat" };
+        }
+
+        return { points: 0, label: "Raté" };
+      }
+
+      if (prediction.type === "result") {
+        if (prediction.result === realResult) {
+          return { points: 3, label: "Bon résultat" };
+        }
+
+        return { points: 0, label: "Raté" };
+      }
+
+      return null;
+    }
+
+    async function loadMembers() {
+      members = [];
+
+      const membersSnapshot = await getDocs(
+        collection(db, "groups", groupCode, "members")
+      );
+
+      membersSnapshot.forEach((docSnap) => {
+        members.push(docSnap.data());
+      });
+
+      members.sort((a, b) => a.pseudo.localeCompare(b.pseudo));
+    }
+
+    async function loadResults() {
+      resultsByMatch = {};
+
+      const resultsSnapshot = await getDocs(
+        collection(db, "groups", groupCode, "results")
+      );
+
+      resultsSnapshot.forEach((docSnap) => {
+        resultsByMatch[docSnap.id] = docSnap.data();
+      });
+    }
+
+    function renderMemberSelect() {
+      const select = $("#select-member");
+
+      select.innerHTML = `
+        <option value="">Choisir un participant existant</option>
+      `;
+
+      members.forEach((member) => {
+        select.innerHTML += `
+          <option value="${member.pseudo}">${member.pseudo}</option>
+        `;
+      });
+    }
+
+    function renderMatchSelect() {
+      const select = $("#select-match");
+      select.innerHTML = "";
+
+      MATCHES.forEach((match) => {
+        const result = resultsByMatch[match.id];
+
+        const status = result
+          ? `score réel ${result.home}-${result.away}`
+          : isMatchStarted(match)
+            ? "commencé / terminé"
+            : "à venir";
+
+        select.innerHTML += `
+          <option value="${match.id}">
+            ${match.home} - ${match.away} | ${formatDate(match.date)} | ${status}
+          </option>
+        `;
+      });
+    }
+
+    async function renderAdminResults() {
       const container = $("#admin-matches");
       container.innerHTML = "";
 
       for (const match of MATCHES) {
-        const resultRef = doc(db, "groups", groupCode, "results", match.id);
-        const snap = await getDoc(resultRef);
-        const existing = snap.exists() ? snap.data() : null;
+        const existingResult = resultsByMatch[match.id] || null;
+        const started = isMatchStarted(match);
 
         const card = document.createElement("div");
         card.className = "admin-card";
+
         card.innerHTML = `
           <h3>${match.homeFlag} ${match.home} vs ${match.away} ${match.awayFlag}</h3>
+
+          <div class="muted">
+            ${match.stage} — ${formatDate(match.date)}
+            <span class="badge ${started ? "badge-past" : "badge-open"}">
+              ${started ? "Commencé / terminé" : "À venir"}
+            </span>
+            ${
+              existingResult
+                ? `<span class="badge badge-scored">Score enregistré : ${existingResult.home} - ${existingResult.away}</span>`
+                : ""
+            }
+          </div>
+
           <div class="admin-row">
             <span>${match.home}</span>
-            <input type="number" min="0" id="home-${match.id}" value="${existing ? existing.home : ''}" />
+            <input type="number" min="0" id="home-${match.id}" value="${existingResult ? existingResult.home : ""}" />
             <span>-</span>
-            <input type="number" min="0" id="away-${match.id}" value="${existing ? existing.away : ''}" />
+            <input type="number" min="0" id="away-${match.id}" value="${existingResult ? existingResult.away : ""}" />
             <span>${match.away}</span>
-            <button class="btn btn-primary btn-save" data-id="${match.id}">Enregistrer</button>
+            <button class="btn btn-primary btn-save-result" data-id="${match.id}">
+              Enregistrer score réel
+            </button>
           </div>
         `;
+
         container.appendChild(card);
       }
 
-      document.querySelectorAll(".btn-save").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const id = btn.dataset.id;
-          const home = parseInt($(`#home-${id}`).value);
-          const away = parseInt($(`#away-${id}`).value);
-          if (isNaN(home) || isNaN(away)) {
-            showToast("Entre un score valide", "error");
+      document.querySelectorAll(".btn-save-result").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const matchId = button.dataset.id;
+          const home = parseInt($(`#home-${matchId}`).value, 10);
+          const away = parseInt($(`#away-${matchId}`).value, 10);
+
+          if (Number.isNaN(home) || Number.isNaN(away) || home < 0 || away < 0) {
+            showToast("Entre un score réel valide", "error");
             return;
           }
-          await setDoc(doc(db, "groups", groupCode, "results", id), { home, away });
-          showToast("Résultat enregistré !", "success");
+
+          button.disabled = true;
+          button.textContent = "Enregistrement...";
+
+          try {
+            await setDoc(doc(db, "groups", groupCode, "results", matchId), {
+              home,
+              away,
+              updatedAt: Date.now(),
+              updatedBy: "admin"
+            });
+
+            await loadResults();
+            await recalculateAndUpdateRanking();
+            renderMatchSelect();
+            await renderAdminResults();
+
+            showToast("Score réel enregistré et classement recalculé", "success");
+          } catch (error) {
+            console.error(error);
+            showToast("Erreur lors de l’enregistrement du score réel", "error");
+          } finally {
+            button.disabled = false;
+            button.textContent = "Enregistrer score réel";
+          }
         });
       });
     }
 
-    $("#btn-load-group").addEventListener("click", async () => {
-      groupCode = $("#input-admin-code").value.trim().toUpperCase();
-      if (!groupCode) return;
+    async function recalculateAndUpdateRanking() {
+      await loadResults();
 
-      const groupSnap = await getDoc(doc(db, "groups", groupCode));
-      if (!groupSnap.exists()) {
-        showToast("Groupe introuvable", "error");
+      const predictionsSnapshot = await getDocs(
+        collection(db, "groups", groupCode, "predictions")
+      );
+
+      const membersSnapshot = await getDocs(
+        collection(db, "groups", groupCode, "members")
+      );
+
+      const pointsByPseudo = {};
+
+      predictionsSnapshot.forEach((docSnap) => {
+        const prediction = docSnap.data();
+        const result = resultsByMatch[prediction.matchId];
+
+        if (!result) return;
+
+        const calculation = calculatePoints(
+          prediction,
+          result.home,
+          result.away
+        );
+
+        if (calculation === null) return;
+
+        if (!pointsByPseudo[prediction.pseudo]) {
+          pointsByPseudo[prediction.pseudo] = 0;
+        }
+
+        pointsByPseudo[prediction.pseudo] += calculation.points;
+      });
+
+      for (const memberDoc of membersSnapshot.docs) {
+        const member = memberDoc.data();
+        const newPoints = pointsByPseudo[member.pseudo] || 0;
+
+        await updateDoc(doc(db, "groups", groupCode, "members", member.pseudo), {
+          points: newPoints
+        });
+      }
+    }
+
+    async function refreshAdminScreen() {
+      await loadMembers();
+      await loadResults();
+
+      renderMemberSelect();
+      renderMatchSelect();
+      await renderAdminResults();
+    }
+
+    function getSelectedPseudo() {
+      const selectedPseudo = cleanPseudo($("#select-member").value);
+      const manualPseudo = cleanPseudo($("#input-new-pseudo").value);
+
+      return manualPseudo || selectedPseudo;
+    }
+
+    function getSelectedPredictionData() {
+      const type = $("#select-prediction-type").value;
+
+      if (type === "result") {
+        return {
+          type: "result",
+          result: $("#select-result").value
+        };
+      }
+
+      const home = parseInt($("#input-pred-home").value, 10);
+      const away = parseInt($("#input-pred-away").value, 10);
+
+      if (Number.isNaN(home) || Number.isNaN(away) || home < 0 || away < 0) {
+        throw new Error("INVALID_SCORE_PREDICTION");
+      }
+
+      return {
+        type: "score",
+        home,
+        away
+      };
+    }
+
+    async function saveAdminPrediction() {
+      const pseudo = getSelectedPseudo();
+      const matchId = $("#select-match").value;
+
+      if (!pseudo) {
+        showToast("Choisis ou saisis un pseudo", "error");
         return;
       }
-      await renderAdmin();
-      showToast(`Groupe "${groupSnap.data().name}" chargé`, "success");
+
+      if (!matchId) {
+        showToast("Choisis un match", "error");
+        return;
+      }
+
+      let predictionData;
+
+      try {
+        predictionData = getSelectedPredictionData();
+      } catch (error) {
+        showToast("Entre un score de pronostic valide", "error");
+        return;
+      }
+
+      const button = $("#btn-save-admin-prediction");
+      button.disabled = true;
+      button.textContent = "Enregistrement...";
+
+      try {
+        await setDoc(
+          doc(db, "groups", groupCode, "members", pseudo),
+          {
+            pseudo,
+            joinedAt: Date.now(),
+            addedOrUpdatedBy: "admin"
+          },
+          { merge: true }
+        );
+
+        await setDoc(
+          doc(db, "groups", groupCode, "predictions", `${pseudo}_${matchId}`),
+          {
+            pseudo,
+            matchId,
+            ...predictionData,
+            updatedAt: Date.now(),
+            updatedBy: "admin"
+          }
+        );
+
+        await recalculateAndUpdateRanking();
+        await refreshAdminScreen();
+
+        $("#input-new-pseudo").value = "";
+
+        showToast("Pronostic enregistré par l’admin", "success");
+      } catch (error) {
+        console.error(error);
+        showToast("Erreur lors de l’enregistrement du pronostic", "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Enregistrer le pronostic";
+      }
+    }
+
+    $("#select-prediction-type").addEventListener("change", () => {
+      const isScorePrediction = $("#select-prediction-type").value === "score";
+
+      $("#select-result").classList.toggle("hidden", isScorePrediction);
+      $("#input-pred-home").classList.toggle("hidden", !isScorePrediction);
+      $("#input-pred-away").classList.toggle("hidden", !isScorePrediction);
+    });
+
+    $("#btn-save-admin-prediction").addEventListener("click", saveAdminPrediction);
+
+    $("#btn-load-group").addEventListener("click", async () => {
+      groupCode = $("#input-admin-code").value.trim().toUpperCase();
+
+      if (!groupCode) {
+        showToast("Entre un code de groupe", "error");
+        return;
+      }
+
+      const button = $("#btn-load-group");
+      button.disabled = true;
+      button.textContent = "Chargement...";
+
+      try {
+        const groupSnap = await getDoc(doc(db, "groups", groupCode));
+
+        if (!groupSnap.exists()) {
+          showToast("Groupe introuvable", "error");
+          return;
+        }
+
+        await refreshAdminScreen();
+
+        $("#admin-content").classList.remove("hidden");
+        showToast(`Groupe "${groupSnap.data().name}" chargé`, "success");
+      } catch (error) {
+        console.error(error);
+        showToast("Erreur lors du chargement du groupe", "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Charger";
+      }
     });
 
     loadMatches();
