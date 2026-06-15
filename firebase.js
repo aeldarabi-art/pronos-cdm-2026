@@ -1,8 +1,9 @@
 // firebase.js
 // Configuration Firebase - Remplace ces valeurs par celles de TON projet Firebase
-// (Console Firebase > Paramètres du projet > Tes applications > SDK config)
+// Console Firebase > Paramètres du projet > Tes applications > SDK config
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
 import {
   getFirestore,
   collection,
@@ -11,6 +12,7 @@ import {
   getDoc,
   getDocs,
   updateDoc,
+  deleteDoc,
   query,
   where,
   onSnapshot,
@@ -27,6 +29,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
 export const db = getFirestore(app);
 
 export {
@@ -36,6 +39,7 @@ export {
   getDoc,
   getDocs,
   updateDoc,
+  deleteDoc,
   query,
   where,
   onSnapshot,
