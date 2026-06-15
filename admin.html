@@ -113,7 +113,7 @@
     }
 
     .hidden {
-      display: none;
+      display: none !important;
     }
 
     .btn-danger {
@@ -141,7 +141,20 @@
     Les utilisateurs restent bloqués après le début du match sur la page normale.
   </div>
 
-  <div class="top-bar">
+  <div id="admin-login-card" class="admin-card">
+    <h3>Connexion admin</h3>
+
+    <p class="muted">
+      Entre le code admin pour accéder à la saisie des scores, aux pronostics oubliés et à la suppression des participants.
+    </p>
+
+    <div class="admin-row">
+      <input type="password" id="input-admin-password" placeholder="Code admin" />
+      <button id="btn-admin-login" class="btn btn-primary">Déverrouiller</button>
+    </div>
+  </div>
+
+  <div id="group-loader" class="top-bar hidden">
     <input type="text" id="input-admin-code" placeholder="Code du groupe" maxlength="8" />
     <button id="btn-load-group" class="btn btn-primary">Charger</button>
   </div>
@@ -226,12 +239,6 @@
     let members = [];
     let resultsByMatch = {};
 
-    async function loadMatches() {
-      const response = await fetch("./matches.json");
-      MATCHES = await response.json();
-      MATCHES.sort((a, b) => new Date(a.date) - new Date(b.date));
-    }
-
     function showToast(message, type = "") {
       const toast = $("#toast");
       toast.textContent = message;
@@ -240,6 +247,59 @@
       setTimeout(() => {
         toast.className = "toast";
       }, 2500);
+    }
+
+    function unlockAdminUI() {
+      sessionStorage.setItem("admin_unlocked", "true");
+
+      $("#admin-login-card").classList.add("hidden");
+      $("#group-loader").classList.remove("hidden");
+
+      showToast("Accès admin déverrouillé", "success");
+    }
+
+    async function checkAdminCode() {
+      const code = $("#input-admin-password").value.trim();
+
+      if (!code) {
+        showToast("Entre le code admin", "error");
+        return;
+      }
+
+      const button = $("#btn-admin-login");
+      button.disabled = true;
+      button.textContent = "Vérification...";
+
+      try {
+        const response = await fetch("/api/check-admin", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ code })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          showToast("Code admin incorrect", "error");
+          return;
+        }
+
+        unlockAdminUI();
+      } catch (error) {
+        console.error(error);
+        showToast("Erreur lors de la vérification du code admin", "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Déverrouiller";
+      }
+    }
+
+    async function loadMatches() {
+      const response = await fetch("./matches.json");
+      MATCHES = await response.json();
+      MATCHES.sort((a, b) => new Date(a.date) - new Date(b.date));
     }
 
     function cleanPseudo(value) {
@@ -650,6 +710,19 @@
         button.disabled = false;
         button.textContent = "Supprimer participant";
       }
+    }
+
+    $("#btn-admin-login").addEventListener("click", checkAdminCode);
+
+    $("#input-admin-password").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        checkAdminCode();
+      }
+    });
+
+    if (sessionStorage.getItem("admin_unlocked") === "true") {
+      $("#admin-login-card").classList.add("hidden");
+      $("#group-loader").classList.remove("hidden");
     }
 
     $("#select-prediction-type").addEventListener("change", () => {
