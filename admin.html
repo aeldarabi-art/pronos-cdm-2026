@@ -303,8 +303,8 @@
 
       <p class="muted">
         Pour chaque groupe, classe les 4 équipes dans l’ordre réel final.
-        Chaque position exacte rapporte 4 pts aux participants.
-        Maximum : 16 pts par groupe, soit 192 pts au total.
+        Chaque position exacte rapporte 1 pt aux participants.
+        Maximum : 4 pts par groupe, soit 48 pts au total.
       </p>
 
       <div id="group-standings-current-result" class="scale-box">
@@ -409,6 +409,8 @@
 
     function showToast(message, type = "") {
       const toast = $("#toast");
+
+      if (!toast) return;
 
       toast.textContent = message;
       toast.className = "toast show " + type;
@@ -736,7 +738,7 @@
           <br>
           Ils sont actuellement intégrés au classement général.
           <br>
-          Barème : <strong>4 pts</strong> par position exacte,
+          Barème : <strong>1 pt</strong> par position exacte,
           maximum <strong>${getGroupStandingMaxTotalPoints()} pts</strong>.
         `;
       } else {
@@ -840,7 +842,7 @@
           doc(db, "groups", groupCode, "challengeResults", "groupStandings"),
           {
             groups: groupsData,
-            pointsPerExactPosition: 4,
+            pointsPerExactPosition: 1,
             maxPointsPerGroup: getGroupStandingMaxPointsPerGroup(),
             maxTotalPoints: getGroupStandingMaxTotalPoints(),
             updatedAt: Date.now(),
