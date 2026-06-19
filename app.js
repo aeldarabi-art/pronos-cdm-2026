@@ -16,11 +16,22 @@ import {
   calculatePredictionPoints,
   formatPointsScale,
   getMatchPointsScale,
+
   getWinnerChallengeTeams,
   getWinnerChallengePoints,
   isWinnerChallengeOpen,
   formatWinnerChallengeDeadline,
-  calculateWinnerChallengePoints
+  calculateWinnerChallengePoints,
+
+  getWorldCupGroups,
+  getGroupLetters,
+  getTeamsByGroup,
+  isGroupStandingsChallengeOpen,
+  formatGroupStandingsDeadline,
+  isValidGroupStanding,
+  calculateAllGroupStandingsPoints,
+  getGroupStandingMaxPointsPerGroup,
+  getGroupStandingMaxTotalPoints
 } from "./probabilities.js";
 
 /* ============================================================
@@ -37,6 +48,9 @@ let liveMatchesData = {};
 
 let winnerPrediction = null;
 let winnerChallengeResult = null;
+
+let groupStandingsPrediction = null;
+let groupStandingsResult = null;
 
 let unsubscribeMembers = null;
 let unsubscribeMatches = null;
@@ -434,6 +448,302 @@ async function handleSaveWinnerPrediction() {
 }
 
 /* ============================================================
+   CHALLENGE CLASSEMENT DES GROUPES
+   ============================================================ */
+
+async function loadMyGroupStandingsPrediction() {
+  groupStandingsPrediction = null;
+
+  if (!currentGroup || !currentUser) return;
+
+  const predictionRef = doc(
+    db,
+    "groups",
+    currentGroup.code,
+    "groupPredictions",
+    currentUser.pseudo
+  );
+
+  const predictionSnap = await getDoc(predictionRef);
+
+  if (predictionSnap.exists()) {
+    groupStandingsPrediction = predictionSnap.data();
+  }
+}
+
+async function loadGroupStandingsResult() {
+  groupStandingsResult = null;
+
+  if (!currentGroup) return;
+
+  const resultRef = doc(
+    db,
+    "groups",
+    currentGroup.code,
+    "challengeResults",
+    "groupStandings"
+  );
+
+  const resultSnap = await getDoc(resultRef);
+
+  if (resultSnap.exists()) {
+    groupStandingsResult = resultSnap.data();
+  }
+}
+
+async function saveGroupStandingsPrediction(groupsData) {
+  if (!currentGroup || !currentUser) return;
+
+  await setDoc(
+    doc(db, "groups", currentGroup.code, "groupPredictions", currentUser.pseudo),
+    {
+      pseudo: currentUser.pseudo,
+      groups: groupsData,
+      updatedAt: Date.now()
+    }
+  );
+
+  groupStandingsPrediction = {
+    pseudo: currentUser.pseudo,
+    groups: groupsData,
+    updatedAt: Date.now()
+  };
+}
+
+function getSelectedGroupStanding(groupLetter) {
+  const teams = [];
+
+  for (let rank = 1; rank <= 4; rank++) {
+    const select = document.querySelector(
+      `.group-standing-select[data-group="${groupLetter}"][data-rank="${rank}"]`
+    );
+
+    if (!select || !select.value) {
+      return null;
+    }
+
+    teams.push(select.value);
+  }
+
+  return teams;
+}
+
+function getAllSelectedGroupStandings() {
+  const result = {};
+
+  for (const groupLetter of getGroupLetters()) {
+    const standing = getSelectedGroupStanding(groupLetter);
+
+    if (!standing) {
+      throw new Error(`Classement incomplet pour le groupe ${groupLetter}`);
+    }
+
+    if (!isValidGroupStanding(groupLetter, standing)) {
+      throw new Error(`Classement invalide pour le groupe ${groupLetter}`);
+    }
+
+    result[groupLetter] = standing;
+  }
+
+  return result;
+}
+
+function renderGroupStandingCard(groupLetter) {
+  const teams = getTeamsByGroup(groupLetter);
+  const existingStanding =
+    groupStandingsPrediction &&
+    groupStandingsPrediction.groups &&
+    groupStandingsPrediction.groups[groupLetter]
+      ? groupStandingsPrediction.groups[groupLetter]
+      : [];
+
+  let rowsHtml = "";
+
+  for (let rank = 1; rank <= teams.length; rank++) {
+    const selectedTeam = existingStanding[rank - 1] || "";
+
+    let optionsHtml = `<option value="">Choisir</option>`;
+
+    teams.forEach((team) => {
+      const selected = selectedTeam === team ? "selected" : "";
+
+      optionsHtml += `
+        <option value="${team}" ${selected}>${team}</option>
+      `;
+    });
+
+    rowsHtml += `
+      <div class="group-standing-row">
+        <span class="group-standing-rank">${rank}</span>
+        <select
+          class="group-standing-select"
+          data-group="${groupLetter}"
+          data-rank="${rank}"
+        >
+          ${optionsHtml}
+        </select>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="group-standing-card">
+      <h3>Groupe ${groupLetter}</h3>
+
+      <div class="group-standing-teams">
+        ${teams.join(" · ")}
+      </div>
+
+      <div class="group-standing-rows">
+        ${rowsHtml}
+      </div>
+    </div>
+  `;
+}
+
+function renderGroupStandingsChallenge() {
+  const deadlineLabel = $("#groups-deadline-label");
+  const container = $("#groups-prediction-list");
+  const currentChoice = $("#groups-current-choice");
+  const form = $("#groups-form");
+  const lockedMessage = $("#groups-locked-message");
+  const error = $("#groups-error");
+
+  if (!container || !form) return;
+
+  if (deadlineLabel) {
+    deadlineLabel.textContent = formatGroupStandingsDeadline();
+  }
+
+  if (error) {
+    error.textContent = "";
+  }
+
+  const isOpen = isGroupStandingsChallengeOpen();
+
+  let html = "";
+
+  getGroupLetters().forEach((groupLetter) => {
+    html += renderGroupStandingCard(groupLetter);
+  });
+
+  container.innerHTML = html;
+
+  const selects = document.querySelectorAll(".group-standing-select");
+
+  selects.forEach((select) => {
+    select.addEventListener("change", () => {
+      validateGroupStandingDuplicates(select.dataset.group);
+    });
+  });
+
+  if (groupStandingsPrediction && groupStandingsPrediction.groups) {
+    currentChoice.style.display = "block";
+
+    let resultText = "";
+
+    if (groupStandingsResult && groupStandingsResult.groups) {
+      const calc = calculateAllGroupStandingsPoints(
+        groupStandingsPrediction.groups,
+        groupStandingsResult.groups
+      );
+
+      resultText = `
+        <br>
+        Résultat actuel du challenge :
+        <strong>${calc.points} pts</strong>
+        sur ${getGroupStandingMaxTotalPoints()} pts.
+      `;
+    }
+
+    currentChoice.innerHTML = `
+      Tes classements de groupes sont déjà enregistrés.
+      <br>
+      Maximum possible : <strong>${getGroupStandingMaxTotalPoints()} pts</strong>.
+      ${resultText}
+    `;
+  } else {
+    currentChoice.style.display = "none";
+    currentChoice.innerHTML = "";
+  }
+
+  if (!isOpen) {
+    selects.forEach((select) => {
+      select.disabled = true;
+    });
+
+    $("#btn-save-groups").disabled = true;
+    lockedMessage.style.display = "block";
+  } else {
+    selects.forEach((select) => {
+      select.disabled = false;
+    });
+
+    $("#btn-save-groups").disabled = false;
+    lockedMessage.style.display = "none";
+  }
+}
+
+function validateGroupStandingDuplicates(groupLetter) {
+  const selects = document.querySelectorAll(
+    `.group-standing-select[data-group="${groupLetter}"]`
+  );
+
+  const selectedValues = [];
+
+  selects.forEach((select) => {
+    select.classList.remove("input-error");
+
+    if (select.value) {
+      selectedValues.push(select.value);
+    }
+  });
+
+  selects.forEach((select) => {
+    if (
+      select.value &&
+      selectedValues.filter((value) => value === select.value).length > 1
+    ) {
+      select.classList.add("input-error");
+    }
+  });
+}
+
+async function handleSaveGroupStandingsPrediction() {
+  const error = $("#groups-error");
+  const button = $("#btn-save-groups");
+
+  if (!isGroupStandingsChallengeOpen()) {
+    error.textContent = "Le challenge Classement des groupes est verrouillé.";
+    return;
+  }
+
+  let groupsData = null;
+
+  try {
+    groupsData = getAllSelectedGroupStandings();
+  } catch (err) {
+    error.textContent = err.message || "Vérifie les classements saisis.";
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = "Enregistrement...";
+
+  try {
+    await saveGroupStandingsPrediction(groupsData);
+    renderGroupStandingsChallenge();
+    showToast("Classements de groupes enregistrés !", "success");
+  } catch (errorObject) {
+    console.error(errorObject);
+    error.textContent = "Erreur lors de l’enregistrement des classements.";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Valider mes classements de groupes";
+  }
+}
+
+/* ============================================================
    CALCUL & MAJ DU CLASSEMENT
    ============================================================ */
 
@@ -491,6 +801,38 @@ async function recalculateAndUpdateRanking() {
       );
 
       if (!calc) return;
+
+      if (!pointsByPseudo[prediction.pseudo]) {
+        pointsByPseudo[prediction.pseudo] = 0;
+      }
+
+      pointsByPseudo[prediction.pseudo] += calc.points;
+    });
+  }
+
+  /* ---------- Points du challenge Classement des groupes ---------- */
+
+  await loadGroupStandingsResult();
+
+  if (groupStandingsResult && groupStandingsResult.groups) {
+    const groupPredsRef = collection(
+      db,
+      "groups",
+      currentGroup.code,
+      "groupPredictions"
+    );
+
+    const groupPredsSnap = await getDocs(groupPredsRef);
+
+    groupPredsSnap.forEach((docSnap) => {
+      const prediction = docSnap.data();
+
+      if (!prediction.groups) return;
+
+      const calc = calculateAllGroupStandingsPoints(
+        prediction.groups,
+        groupStandingsResult.groups
+      );
 
       if (!pointsByPseudo[prediction.pseudo]) {
         pointsByPseudo[prediction.pseudo] = 0;
@@ -896,6 +1238,10 @@ function switchTab(tabName) {
   if (tabName === "winner") {
     renderWinnerChallenge();
   }
+
+  if (tabName === "groups") {
+    renderGroupStandingsChallenge();
+  }
 }
 
 /* ============================================================
@@ -955,9 +1301,12 @@ async function enterGroup() {
   await loadMyPredictions();
   await loadMyWinnerPrediction();
   await loadWinnerChallengeResult();
+  await loadMyGroupStandingsPrediction();
+  await loadGroupStandingsResult();
 
   renderMatches();
   renderWinnerChallenge();
+  renderGroupStandingsChallenge();
 
   listenToResults();
   listenToMembers();
@@ -1007,6 +1356,8 @@ function setupEventListeners() {
     predictions = {};
     winnerPrediction = null;
     winnerChallengeResult = null;
+    groupStandingsPrediction = null;
+    groupStandingsResult = null;
 
     clearSession();
     $("#input-pseudo").value = "";
@@ -1112,6 +1463,12 @@ function setupEventListeners() {
 
   if (winnerButton) {
     winnerButton.addEventListener("click", handleSaveWinnerPrediction);
+  }
+
+  const groupsButton = $("#btn-save-groups");
+
+  if (groupsButton) {
+    groupsButton.addEventListener("click", handleSaveGroupStandingsPrediction);
   }
 }
 
