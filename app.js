@@ -15,21 +15,31 @@ import {
 import {
   calculatePredictionPoints,
   formatPointsScale,
-  getMatchPointsScale
+  getMatchPointsScale,
+  getWinnerChallengeTeams,
+  getWinnerChallengePoints,
+  isWinnerChallengeOpen,
+  formatWinnerChallengeDeadline,
+  calculateWinnerChallengePoints
 } from "./probabilities.js";
 
 /* ============================================================
    ETAT GLOBAL
    ============================================================ */
-let MATCHES = [];          // chargé depuis matches.json
-let currentUser = null;    // { pseudo }
-let currentGroup = null;   // { code, name }
-let predictions = {};      // { matchId: { type, home, away, result } }
-let groupMembers = [];     // [{pseudo, points}]
+let MATCHES = [];
+let currentUser = null;
+let currentGroup = null;
+
+let predictions = {};
+let groupMembers = [];
+let liveMatchesData = {};
+
+let winnerPrediction = null;
+let winnerChallengeResult = null;
+
 let unsubscribeMembers = null;
 let unsubscribeMatches = null;
 let activeMatchForModal = null;
-let liveMatchesData = {};  // résultats des matchs depuis Firestore
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -39,8 +49,12 @@ const $$ = (sel) => document.querySelectorAll(sel);
    ============================================================ */
 function showToast(message, type = "") {
   const toast = $("#toast");
+
+  if (!toast) return;
+
   toast.textContent = message;
   toast.className = "toast show " + type;
+
   setTimeout(() => {
     toast.className = "toast";
   }, 2500);
@@ -76,20 +90,10 @@ function formatDate(dateStr) {
   return d.toLocaleString("fr-FR", options) + " (Maroc)";
 }
 
-/* ============================================================
-   SECURITE PRONOSTIC
-   ============================================================ */
 function isMatchStarted(match) {
   return new Date() >= new Date(match.date);
 }
 
-/* ============================================================
-   CALCUL DES POINTS
-   Nouveau barème :
-   - Bon résultat = 2 à 10 pts selon la probabilité
-   - Score exact = bonus +3 pts
-   - Mauvais résultat = 0 pt
-   ============================================================ */
 function calculatePoints(prediction, realHome, realAway, match) {
   return calculatePredictionPoints(prediction, realHome, realAway, match);
 }
@@ -122,28 +126,15 @@ async function loadMatches() {
     const res = await fetch("./matches.json");
     MATCHES = await res.json();
     MATCHES.sort((a, b) => new Date(a.date) - new Date(b.date));
-  } catch (e) {
-    console.error("Erreur chargement matches.json", e);
+  } catch (error) {
+    console.error("Erreur chargement matches.json", error);
     showToast("Erreur de chargement des matchs", "error");
   }
 }
 
 /* ============================================================
-   FIRESTORE STRUCTURE
-   groups/{code}
-     - name
-     - code
-     - createdAt
-   groups/{code}/members/{pseudo}
-     - pseudo
-     - points
-   groups/{code}/predictions/{pseudo}_{matchId}
-     - pseudo, matchId, type, home, away, result, createdAt
-   groups/{code}/results/{matchId}
-     - home, away
+   FIRESTORE - GROUPES
    ============================================================ */
-
-/* ---------- CREATION DE GROUPE ---------- */
 async function createGroup(groupName, pseudo) {
   let code = generateGroupCode();
 
@@ -158,13 +149,13 @@ async function createGroup(groupName, pseudo) {
 
   await setDoc(doc(db, "groups", code), {
     name: groupName,
-    code: code,
+    code,
     createdBy: pseudo,
     createdAt: Date.now()
   });
 
   await setDoc(doc(db, "groups", code, "members", pseudo), {
-    pseudo: pseudo,
+    pseudo,
     points: 0,
     joinedAt: Date.now()
   });
@@ -172,7 +163,6 @@ async function createGroup(groupName, pseudo) {
   return { code, name: groupName };
 }
 
-/* ---------- REJOINDRE UN GROUPE ---------- */
 async function joinGroup(code, pseudo) {
   code = code.trim().toUpperCase();
 
@@ -188,7 +178,7 @@ async function joinGroup(code, pseudo) {
 
   if (!memberSnap.exists()) {
     await setDoc(memberRef, {
-      pseudo: pseudo,
+      pseudo,
       points: 0,
       joinedAt: Date.now()
     });
@@ -197,14 +187,16 @@ async function joinGroup(code, pseudo) {
   return { code, name: groupSnap.data().name };
 }
 
-/* ---------- SAUVEGARDER UN PRONOSTIC ---------- */
+/* ============================================================
+   PRONOSTICS MATCHS
+   ============================================================ */
 async function savePrediction(matchId, predictionData) {
   const predId = `${currentUser.pseudo}_${matchId}`;
   const predRef = doc(db, "groups", currentGroup.code, "predictions", predId);
 
   await setDoc(predRef, {
     pseudo: currentUser.pseudo,
-    matchId: matchId,
+    matchId,
     ...predictionData,
     updatedAt: Date.now()
   });
@@ -212,7 +204,6 @@ async function savePrediction(matchId, predictionData) {
   predictions[matchId] = predictionData;
 }
 
-/* ---------- CHARGER MES PRONOSTICS ---------- */
 async function loadMyPredictions() {
   predictions = {};
 
@@ -226,7 +217,6 @@ async function loadMyPredictions() {
   });
 }
 
-/* ---------- LISTENER RESULTATS DES MATCHS ---------- */
 function listenToResults() {
   if (unsubscribeMatches) unsubscribeMatches();
 
@@ -244,12 +234,210 @@ function listenToResults() {
   });
 }
 
-/* ---------- CALCUL & MAJ DU CLASSEMENT ---------- */
+/* ============================================================
+   CHALLENGE CHAMPION DU MONDE
+   ============================================================ */
+async function loadMyWinnerPrediction() {
+  winnerPrediction = null;
+
+  if (!currentGroup || !currentUser) return;
+
+  const winnerRef = doc(
+    db,
+    "groups",
+    currentGroup.code,
+    "winnerPredictions",
+    currentUser.pseudo
+  );
+
+  const winnerSnap = await getDoc(winnerRef);
+
+  if (winnerSnap.exists()) {
+    winnerPrediction = winnerSnap.data();
+  }
+}
+
+async function loadWinnerChallengeResult() {
+  winnerChallengeResult = null;
+
+  if (!currentGroup) return;
+
+  const resultRef = doc(
+    db,
+    "groups",
+    currentGroup.code,
+    "challengeResults",
+    "winner"
+  );
+
+  const resultSnap = await getDoc(resultRef);
+
+  if (resultSnap.exists()) {
+    winnerChallengeResult = resultSnap.data();
+  }
+}
+
+async function saveWinnerPrediction(team) {
+  if (!currentGroup || !currentUser) return;
+
+  const pointsIfCorrect = getWinnerChallengePoints(team);
+
+  await setDoc(
+    doc(db, "groups", currentGroup.code, "winnerPredictions", currentUser.pseudo),
+    {
+      pseudo: currentUser.pseudo,
+      team,
+      pointsIfCorrect,
+      updatedAt: Date.now()
+    }
+  );
+
+  winnerPrediction = {
+    pseudo: currentUser.pseudo,
+    team,
+    pointsIfCorrect,
+    updatedAt: Date.now()
+  };
+}
+
+function renderWinnerChallenge() {
+  const deadlineLabel = $("#winner-deadline-label");
+  const select = $("#select-winner-team");
+  const preview = $("#winner-points-preview");
+  const currentChoice = $("#winner-current-choice");
+  const form = $("#winner-form");
+  const lockedMessage = $("#winner-locked-message");
+  const error = $("#winner-error");
+
+  if (!select || !form) return;
+
+  if (deadlineLabel) {
+    deadlineLabel.textContent = formatWinnerChallengeDeadline();
+  }
+
+  if (error) {
+    error.textContent = "";
+  }
+
+  const isOpen = isWinnerChallengeOpen();
+  const teams = getWinnerChallengeTeams();
+
+  select.innerHTML = `<option value="">Choisir une équipe</option>`;
+
+  teams.forEach((item) => {
+    const selected =
+      winnerPrediction && winnerPrediction.team === item.team ? "selected" : "";
+
+    select.innerHTML += `
+      <option value="${item.team}" ${selected}>
+        ${item.team} — ${item.points} pts
+      </option>
+    `;
+  });
+
+  if (winnerPrediction) {
+    currentChoice.style.display = "block";
+
+    let resultText = "";
+
+    if (winnerChallengeResult && winnerChallengeResult.team) {
+      const calc = calculateWinnerChallengePoints(
+        winnerPrediction.team,
+        winnerChallengeResult.team
+      );
+
+      resultText = `
+        <br>
+        Champion réel : <strong>${winnerChallengeResult.team}</strong>
+        <br>
+        Résultat du challenge : <strong>${calc.points} pts</strong> — ${calc.label}
+      `;
+    }
+
+    currentChoice.innerHTML = `
+      Ton choix actuel :
+      <strong>${winnerPrediction.team}</strong>
+      —
+      <strong>${winnerPrediction.pointsIfCorrect} pts</strong> si champion.
+      ${resultText}
+    `;
+  } else {
+    currentChoice.style.display = "none";
+    currentChoice.innerHTML = "";
+  }
+
+  const selectedTeam = select.value;
+
+  if (selectedTeam) {
+    const points = getWinnerChallengePoints(selectedTeam);
+
+    preview.style.display = "block";
+    preview.innerHTML = `
+      Si <strong>${selectedTeam}</strong> remporte la Coupe du Monde,
+      tu gagnes <strong>${points} pts</strong>.
+    `;
+  } else {
+    preview.style.display = "none";
+    preview.innerHTML = "";
+  }
+
+  if (!isOpen) {
+    select.disabled = true;
+    $("#btn-save-winner").disabled = true;
+    lockedMessage.style.display = "block";
+  } else {
+    select.disabled = false;
+    $("#btn-save-winner").disabled = false;
+    lockedMessage.style.display = "none";
+  }
+}
+
+async function handleSaveWinnerPrediction() {
+  const error = $("#winner-error");
+  const select = $("#select-winner-team");
+  const button = $("#btn-save-winner");
+
+  if (!select) return;
+
+  if (!isWinnerChallengeOpen()) {
+    error.textContent = "Le challenge Champion est verrouillé.";
+    return;
+  }
+
+  const team = select.value;
+
+  if (!team) {
+    error.textContent = "Choisis une équipe championne.";
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = "Enregistrement...";
+
+  try {
+    await saveWinnerPrediction(team);
+    renderWinnerChallenge();
+    showToast("Choix Champion enregistré !", "success");
+  } catch (errorObject) {
+    console.error(errorObject);
+    error.textContent = "Erreur lors de l’enregistrement du champion.";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Valider mon champion";
+  }
+}
+
+/* ============================================================
+   CALCUL & MAJ DU CLASSEMENT
+   ============================================================ */
 async function recalculateAndUpdateRanking() {
-  const predsRef = collection(db, "groups", currentGroup.code, "predictions");
-  const predsSnap = await getDocs(predsRef);
+  if (!currentGroup) return;
 
   const pointsByPseudo = {};
+
+  /* ---------- Points des matchs ---------- */
+  const predsRef = collection(db, "groups", currentGroup.code, "predictions");
+  const predsSnap = await getDocs(predsRef);
 
   predsSnap.forEach((docSnap) => {
     const pred = docSnap.data();
@@ -272,6 +460,38 @@ async function recalculateAndUpdateRanking() {
     pointsByPseudo[pred.pseudo] += calc.points;
   });
 
+  /* ---------- Points du challenge Champion ---------- */
+  await loadWinnerChallengeResult();
+
+  if (winnerChallengeResult && winnerChallengeResult.team) {
+    const winnerPredsRef = collection(
+      db,
+      "groups",
+      currentGroup.code,
+      "winnerPredictions"
+    );
+
+    const winnerPredsSnap = await getDocs(winnerPredsRef);
+
+    winnerPredsSnap.forEach((docSnap) => {
+      const prediction = docSnap.data();
+
+      const calc = calculateWinnerChallengePoints(
+        prediction.team,
+        winnerChallengeResult.team
+      );
+
+      if (!calc) return;
+
+      if (!pointsByPseudo[prediction.pseudo]) {
+        pointsByPseudo[prediction.pseudo] = 0;
+      }
+
+      pointsByPseudo[prediction.pseudo] += calc.points;
+    });
+  }
+
+  /* ---------- Mise à jour des membres ---------- */
   const membersRef = collection(db, "groups", currentGroup.code, "members");
   const membersSnap = await getDocs(membersRef);
 
@@ -287,7 +507,6 @@ async function recalculateAndUpdateRanking() {
   }
 }
 
-/* ---------- LISTENER MEMBRES ---------- */
 function listenToMembers() {
   if (unsubscribeMembers) unsubscribeMembers();
 
@@ -311,6 +530,9 @@ function listenToMembers() {
    ============================================================ */
 function renderMatches() {
   const container = $("#matches-list");
+
+  if (!container) return;
+
   container.innerHTML = "";
 
   let lastStage = "";
@@ -326,6 +548,7 @@ function renderMatches() {
 
     const started = isMatchStarted(match);
     const result = liveMatchesData[match.id];
+
     const hasResult =
       result &&
       result.home !== undefined &&
@@ -340,6 +563,36 @@ function renderMatches() {
 
     if (started) card.classList.add("locked");
     if (myPred) card.classList.add("has-prediction");
+
+    const scale = getMatchPointsScale(match);
+
+    const pointsScaleHtml = `
+      <div style="
+        margin-top:8px;
+        padding:8px 10px;
+        border-radius:10px;
+        background:#f8fafc;
+        border:1px solid #e5e7eb;
+        font-size:12px;
+        color:#334155;
+        line-height:1.5;
+      ">
+        <div style="font-weight:700;">
+          ${scale["1"].label} : ${scale["1"].points} pts
+          ·
+          Nul : ${scale["N"].points} pts
+          ·
+          ${scale["2"].label} : ${scale["2"].points} pts
+        </div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px;">
+          ${
+            scale["1"].scoringMode === "legacy"
+              ? "Ancien barème : score exact = 5 pts"
+              : "Score exact : +3 pts"
+          }
+        </div>
+      </div>
+    `;
 
     let statusHtml = "";
 
@@ -366,21 +619,21 @@ function renderMatches() {
           const cls =
             calc.points === 0
               ? "win-zero"
-              : calc.exactBonus > 0
+              : calc.exactBonus > 0 || calc.label === "Score exact"
                 ? "win-exact"
                 : "win-result";
 
           let detail = "";
 
           if (calc.points > 0) {
-            detail = ` — ${calc.label} : ${calc.basePoints} pts`;
+            if (calc.scoringMode === "legacy") {
+              detail = ` — ${calc.label}`;
+            } else {
+              detail = ` — ${calc.label} : ${calc.basePoints} pts`;
 
-            if (calc.exactBonus > 0) {
-              detail += ` + ${calc.exactBonus} bonus`;
-            }
-
-            if (calc.probability !== null && calc.probability !== undefined) {
-              detail += ` — proba ${calc.probability}%`;
+              if (calc.exactBonus > 0) {
+                detail += ` + ${calc.exactBonus} bonus`;
+              }
             }
           } else {
             detail = ` — ${calc.label}`;
@@ -406,12 +659,16 @@ function renderMatches() {
           <span class="team-flag">${match.homeFlag}</span>
           <span>${match.home}</span>
         </div>
+
         <span class="match-vs">VS</span>
+
         <div class="team away">
           <span>${match.away}</span>
           <span class="team-flag">${match.awayFlag}</span>
         </div>
       </div>
+
+      ${pointsScaleHtml}
 
       <div class="match-meta">
         <span class="match-date">${formatDate(match.date)}</span>
@@ -433,6 +690,9 @@ function renderMatches() {
    ============================================================ */
 function renderRanking() {
   const container = $("#ranking-list");
+
+  if (!container) return;
+
   container.innerHTML = "";
 
   if (groupMembers.length === 0) {
@@ -474,7 +734,7 @@ function renderRanking() {
 }
 
 /* ============================================================
-   MODAL PRONOSTIC
+   MODAL PRONOSTIC MATCH
    ============================================================ */
 let selectedMode = "result";
 let selectedResult = null;
@@ -492,7 +752,11 @@ function openPredictionModal(match) {
     ${match.home} vs ${match.away} — ${formatDate(match.date)}
     <br>
     <span style="font-size:12px;color:#64748b;">
-      Barème : ${formatPointsScale(match)} • Score exact : +3 pts
+      Barème : ${formatPointsScale(match)} • ${
+        scale["1"].scoringMode === "legacy"
+          ? "Score exact : 5 pts"
+          : "Score exact : +3 pts"
+      }
     </span>
   `;
 
@@ -592,8 +856,8 @@ async function handleSavePrediction() {
     showToast("Pronostic enregistré !", "success");
     closeModal();
     renderMatches();
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
     $("#modal-error").textContent = "Erreur lors de l'enregistrement.";
   }
 }
@@ -613,10 +877,14 @@ function switchTab(tabName) {
 
   $$(".tab-content").forEach((content) => content.classList.remove("active"));
   $(`#tab-${tabName}`).classList.add("active");
+
+  if (tabName === "winner") {
+    renderWinnerChallenge();
+  }
 }
 
 /* ============================================================
-   PERSISTENCE LOCALE
+   SESSION LOCALE
    ============================================================ */
 function saveSession() {
   localStorage.setItem("wc2026_pseudo", currentUser.pseudo);
@@ -668,9 +936,16 @@ async function enterGroup() {
   switchTab("matches");
 
   await loadMyPredictions();
+  await loadMyWinnerPrediction();
+  await loadWinnerChallengeResult();
+
   renderMatches();
+  renderWinnerChallenge();
+
   listenToResults();
   listenToMembers();
+
+  await recalculateAndUpdateRanking();
 }
 
 /* ============================================================
@@ -712,6 +987,8 @@ function setupEventListeners() {
     currentUser = null;
     currentGroup = null;
     predictions = {};
+    winnerPrediction = null;
+    winnerChallengeResult = null;
 
     clearSession();
     $("#input-pseudo").value = "";
@@ -735,8 +1012,8 @@ function setupEventListeners() {
       saveSession();
       showToast(`Groupe créé ! Code : ${currentGroup.code}`, "success");
       await enterGroup();
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
       $("#group-error").textContent = "Erreur lors de la création du groupe.";
     } finally {
       $("#btn-create-group").disabled = false;
@@ -759,8 +1036,8 @@ function setupEventListeners() {
       saveSession();
       showToast(`Tu as rejoint "${currentGroup.name}" !`, "success");
       await enterGroup();
-    } catch (e) {
-      $("#group-error").textContent = e.message || "Erreur lors de la connexion au groupe.";
+    } catch (error) {
+      $("#group-error").textContent = error.message || "Erreur lors de la connexion au groupe.";
     } finally {
       $("#btn-join-group").disabled = false;
     }
@@ -806,6 +1083,18 @@ function setupEventListeners() {
   });
 
   $("#btn-save-prediction").addEventListener("click", handleSavePrediction);
+
+  const winnerSelect = $("#select-winner-team");
+
+  if (winnerSelect) {
+    winnerSelect.addEventListener("change", renderWinnerChallenge);
+  }
+
+  const winnerButton = $("#btn-save-winner");
+
+  if (winnerButton) {
+    winnerButton.addEventListener("click", handleSaveWinnerPrediction);
+  }
 }
 
 /* ============================================================
