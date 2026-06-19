@@ -9,6 +9,11 @@
 // - Choix verrouillé le 23 juin 2026 à 23h59 heure Maroc
 // - Barème de 20 à 80 pts selon la difficulté du choix
 //
+// Challenge Classements groupes :
+// - Choix verrouillé le 23 juin 2026 à 23h59 heure Maroc
+// - 4 pts par équipe placée exactement au bon rang
+// - 16 pts maximum par groupe
+//
 // Les probabilités restent internes et ne doivent pas être affichées aux utilisateurs.
 
 /* ============================================================
@@ -73,7 +78,38 @@ export const TEAM_RATINGS = {
 const DEFAULT_RATING = 1500;
 
 /* ============================================================
-   2. DATE DE BASCULE DU NOUVEAU BARÈME DES MATCHS
+   2. GROUPES COUPE DU MONDE 2026
+   ============================================================ */
+
+export const WORLD_CUP_GROUPS = {
+  A: ["Mexique", "Afrique du Sud", "Corée du Sud", "Tchéquie"],
+  B: ["Canada", "Bosnie-Herzégovine", "Qatar", "Suisse"],
+  C: ["Brésil", "Maroc", "Haïti", "Écosse"],
+  D: ["États-Unis", "Paraguay", "Australie", "Turquie"],
+  E: ["Allemagne", "Curaçao", "Côte d'Ivoire", "Équateur"],
+  F: ["Pays-Bas", "Japon", "Suède", "Tunisie"],
+  G: ["Belgique", "Égypte", "Iran", "Nouvelle-Zélande"],
+  H: ["Espagne", "Cap-Vert", "Arabie Saoudite", "Uruguay"],
+  I: ["France", "Sénégal", "Irak", "Norvège"],
+  J: ["Argentine", "Algérie", "Autriche", "Jordanie"],
+  K: ["Portugal", "RD Congo", "Ouzbékistan", "Colombie"],
+  L: ["Angleterre", "Croatie", "Ghana", "Panama"]
+};
+
+export function getWorldCupGroups() {
+  return WORLD_CUP_GROUPS;
+}
+
+export function getGroupLetters() {
+  return Object.keys(WORLD_CUP_GROUPS);
+}
+
+export function getTeamsByGroup(groupLetter) {
+  return WORLD_CUP_GROUPS[groupLetter] || [];
+}
+
+/* ============================================================
+   3. DATE DE BASCULE DU NOUVEAU BARÈME DES MATCHS
    ============================================================ */
 
 // Matchs avant le 20 juin 2026 : ancien barème.
@@ -89,7 +125,7 @@ function isNewScoringApplicable(match) {
 }
 
 /* ============================================================
-   3. CHALLENGE CHAMPION DU MONDE
+   4. CHALLENGE CHAMPION DU MONDE
    ============================================================ */
 
 // Deadline : 23 juin 2026 à 23h59, heure Maroc.
@@ -209,7 +245,112 @@ export function formatWinnerChallengeDeadline() {
 }
 
 /* ============================================================
-   4. UTILITAIRES
+   5. CHALLENGE CLASSEMENTS GROUPES
+   ============================================================ */
+
+// Même deadline que le challenge Champion.
+export const GROUP_STANDINGS_DEADLINE = "2026-06-23T23:59:59+01:00";
+
+export const GROUP_STANDING_POINTS_PER_EXACT_POSITION = 4;
+
+export function isGroupStandingsChallengeOpen() {
+  return new Date() <= new Date(GROUP_STANDINGS_DEADLINE);
+}
+
+export function formatGroupStandingsDeadline() {
+  return "23 juin 2026 à 23h59";
+}
+
+export function getGroupStandingMaxPointsPerGroup() {
+  return 4 * GROUP_STANDING_POINTS_PER_EXACT_POSITION;
+}
+
+export function getGroupStandingMaxTotalPoints() {
+  return getGroupLetters().length * getGroupStandingMaxPointsPerGroup();
+}
+
+export function isValidGroupStanding(groupLetter, standing) {
+  const teams = getTeamsByGroup(groupLetter);
+
+  if (!Array.isArray(standing)) return false;
+  if (standing.length !== teams.length) return false;
+
+  const uniqueTeams = new Set(standing);
+
+  if (uniqueTeams.size !== teams.length) return false;
+
+  return standing.every((team) => teams.includes(team));
+}
+
+export function calculateSingleGroupStandingPoints(predictedStanding, realStanding) {
+  if (!Array.isArray(predictedStanding) || !Array.isArray(realStanding)) {
+    return {
+      points: 0,
+      exactPositions: 0,
+      maxPoints: 16
+    };
+  }
+
+  let exactPositions = 0;
+
+  for (let i = 0; i < realStanding.length; i++) {
+    if (predictedStanding[i] === realStanding[i]) {
+      exactPositions++;
+    }
+  }
+
+  const points = exactPositions * GROUP_STANDING_POINTS_PER_EXACT_POSITION;
+
+  return {
+    points,
+    exactPositions,
+    maxPoints: realStanding.length * GROUP_STANDING_POINTS_PER_EXACT_POSITION
+  };
+}
+
+export function calculateAllGroupStandingsPoints(predictedGroups, realGroups) {
+  if (!predictedGroups || !realGroups) {
+    return {
+      points: 0,
+      details: {}
+    };
+  }
+
+  let totalPoints = 0;
+  const details = {};
+
+  getGroupLetters().forEach((groupLetter) => {
+    const predictedStanding = predictedGroups[groupLetter];
+    const realStanding = realGroups[groupLetter];
+
+    if (!predictedStanding || !realStanding) {
+      details[groupLetter] = {
+        points: 0,
+        exactPositions: 0,
+        maxPoints: getGroupStandingMaxPointsPerGroup()
+      };
+
+      return;
+    }
+
+    const calculation = calculateSingleGroupStandingPoints(
+      predictedStanding,
+      realStanding
+    );
+
+    totalPoints += calculation.points;
+
+    details[groupLetter] = calculation;
+  });
+
+  return {
+    points: totalPoints,
+    details
+  };
+}
+
+/* ============================================================
+   6. UTILITAIRES
    ============================================================ */
 
 export function getTeamRating(teamName) {
@@ -230,11 +371,7 @@ function roundPercent(value) {
 }
 
 /* ============================================================
-   5. PROBABILITÉ DU NUL
-
-   Le nul dépend de l'écart de force.
-   Plus les équipes sont proches, plus le nul est probable.
-   Plus l'écart est élevé, plus le nul devient une surprise.
+   7. PROBABILITÉ DU NUL
    ============================================================ */
 
 function getDrawProbabilityFromRatingDiff(diff) {
@@ -250,10 +387,7 @@ function getDrawProbabilityFromRatingDiff(diff) {
 }
 
 /* ============================================================
-   6. CALCUL DES PROBABILITÉS INTERNES 1 / N / 2
-
-   Ces probabilités servent uniquement au moteur de calcul.
-   Elles ne doivent pas être affichées aux utilisateurs.
+   8. CALCUL DES PROBABILITÉS INTERNES 1 / N / 2
    ============================================================ */
 
 export function getMatchProbabilities(match) {
@@ -290,11 +424,7 @@ export function getMatchProbabilities(match) {
 }
 
 /* ============================================================
-   7. ANCIEN BARÈME — MATCHS AVANT LE 20 JUIN 2026
-
-   Score exact = 5 pts
-   Bon résultat = 3 pts
-   Mauvais résultat = 0 pt
+   9. ANCIEN BARÈME — MATCHS AVANT LE 20 JUIN 2026
    ============================================================ */
 
 function calculateLegacyPredictionPoints(prediction, realHome, realAway) {
@@ -375,10 +505,7 @@ function calculateLegacyPredictionPoints(prediction, realHome, realAway) {
 }
 
 /* ============================================================
-   8. BARÈME DE BASE DES POINTS ENTRE 2 ET 10
-
-   Plus le résultat pronostiqué est improbable,
-   plus il rapporte de points.
+   10. BARÈME DE BASE DES POINTS ENTRE 2 ET 10
    ============================================================ */
 
 export function getResultPointsFromProbability(probability) {
@@ -397,17 +524,7 @@ export function getResultPointsFromProbability(probability) {
 }
 
 /* ============================================================
-   9. AJUSTEMENT DU NUL
-
-   Objectif :
-   - Le nul doit rester récompensé.
-   - Mais la victoire du non-favori doit toujours rapporter
-     plus que le nul lorsque l'écart de force est significatif.
-
-   Exemple attendu :
-   Favori : 4 pts
-   Nul : 6 pts
-   Non-favori : 8 pts
+   11. AJUSTEMENT DU NUL
    ============================================================ */
 
 function getDynamicResultPoints(match, result, probabilities) {
@@ -423,13 +540,10 @@ function getDynamicResultPoints(match, result, probabilities) {
   const diff = homeRating - awayRating;
   const absDiff = Math.abs(diff);
 
-  // Pour les matchs très équilibrés, le nul reste un résultat normal.
   if (result !== "N" || absDiff <= 80) {
     return basePoints;
   }
 
-  // Lorsque l'écart est important, le nul doit être moins valorisé
-  // que la victoire du non-favori.
   let penalty = 1;
 
   if (absDiff > 300) {
@@ -444,15 +558,7 @@ function getDynamicResultPoints(match, result, probabilities) {
 }
 
 /* ============================================================
-   10. CALCUL DES POINTS D'UN PRONOSTIC MATCH
-
-   Avant le 20 juin :
-   - ancien barème 5 / 3 / 0
-
-   À partir du 20 juin :
-   - bon résultat = 2 à 10 pts
-   - score exact = bonus +3 pts
-   - mauvais résultat = 0 pt
+   12. CALCUL DES POINTS D'UN PRONOSTIC MATCH
    ============================================================ */
 
 export function calculatePredictionPoints(prediction, realHome, realAway, match) {
@@ -521,11 +627,7 @@ export function calculatePredictionPoints(prediction, realHome, realAway, match)
 }
 
 /* ============================================================
-   11. BARÈME VISIBLE D'UN MATCH
-
-   Attention :
-   - Les points sont visibles.
-   - Les probabilités restent internes.
+   13. BARÈME VISIBLE D'UN MATCH
    ============================================================ */
 
 export function getMatchPointsScale(match) {
@@ -583,9 +685,7 @@ export function getMatchPointsScale(match) {
 }
 
 /* ============================================================
-   12. TEXTE COURT POUR L'INTERFACE PUBLIQUE
-
-   Ici, on n'affiche volontairement PAS les probabilités.
+   14. TEXTE COURT POUR L'INTERFACE PUBLIQUE
    ============================================================ */
 
 export function formatPointsScale(match) {
@@ -599,10 +699,7 @@ export function formatPointsScale(match) {
 }
 
 /* ============================================================
-   13. DÉTAILS INTERNES MATCHS
-
-   Fonction utile pour debug/admin.
-   Ne pas utiliser pour affichage public si on veut cacher les probabilités.
+   15. DÉTAILS INTERNES MATCHS
    ============================================================ */
 
 export function getMatchProbabilityDetails(match) {
