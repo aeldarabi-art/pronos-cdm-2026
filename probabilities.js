@@ -231,6 +231,10 @@ function roundPercent(value) {
 
 /* ============================================================
    5. PROBABILITÉ DU NUL
+
+   Le nul dépend de l'écart de force.
+   Plus les équipes sont proches, plus le nul est probable.
+   Plus l'écart est élevé, plus le nul devient une surprise.
    ============================================================ */
 
 function getDrawProbabilityFromRatingDiff(diff) {
@@ -371,7 +375,7 @@ function calculateLegacyPredictionPoints(prediction, realHome, realAway) {
 }
 
 /* ============================================================
-   8. NOUVEAU BARÈME DES POINTS ENTRE 2 ET 10
+   8. BARÈME DE BASE DES POINTS ENTRE 2 ET 10
 
    Plus le résultat pronostiqué est improbable,
    plus il rapporte de points.
@@ -393,7 +397,54 @@ export function getResultPointsFromProbability(probability) {
 }
 
 /* ============================================================
-   9. CALCUL DES POINTS D'UN PRONOSTIC MATCH
+   9. AJUSTEMENT DU NUL
+
+   Objectif :
+   - Le nul doit rester récompensé.
+   - Mais la victoire du non-favori doit toujours rapporter
+     plus que le nul lorsque l'écart de force est significatif.
+
+   Exemple attendu :
+   Favori : 4 pts
+   Nul : 6 pts
+   Non-favori : 8 pts
+   ============================================================ */
+
+function getDynamicResultPoints(match, result, probabilities) {
+  const basePoints = getResultPointsFromProbability(probabilities[result]);
+
+  if (!match || !result || !probabilities) {
+    return basePoints;
+  }
+
+  const homeRating = getTeamRating(match.home);
+  const awayRating = getTeamRating(match.away);
+
+  const diff = homeRating - awayRating;
+  const absDiff = Math.abs(diff);
+
+  // Pour les matchs très équilibrés, le nul reste un résultat normal.
+  if (result !== "N" || absDiff <= 80) {
+    return basePoints;
+  }
+
+  // Lorsque l'écart est important, le nul doit être moins valorisé
+  // que la victoire du non-favori.
+  let penalty = 1;
+
+  if (absDiff > 300) {
+    penalty = 2;
+  }
+
+  if (absDiff > 600) {
+    penalty = 3;
+  }
+
+  return Math.max(2, basePoints - penalty);
+}
+
+/* ============================================================
+   10. CALCUL DES POINTS D'UN PRONOSTIC MATCH
 
    Avant le 20 juin :
    - ancien barème 5 / 3 / 0
@@ -455,7 +506,7 @@ export function calculatePredictionPoints(prediction, realHome, realAway, match)
     };
   }
 
-  const basePoints = getResultPointsFromProbability(probability);
+  const basePoints = getDynamicResultPoints(match, predictedResult, probabilities);
   const exactBonus = isExactScore ? 3 : 0;
   const totalPoints = basePoints + exactBonus;
 
@@ -470,7 +521,7 @@ export function calculatePredictionPoints(prediction, realHome, realAway, match)
 }
 
 /* ============================================================
-   10. BARÈME VISIBLE D'UN MATCH
+   11. BARÈME VISIBLE D'UN MATCH
 
    Attention :
    - Les points sont visibles.
@@ -511,28 +562,28 @@ export function getMatchPointsScale(match) {
       result: "1",
       label: match.home,
       probability: probabilities["1"],
-      points: getResultPointsFromProbability(probabilities["1"]),
+      points: getDynamicResultPoints(match, "1", probabilities),
       scoringMode: "dynamic"
     },
     "N": {
       result: "N",
       label: "Nul",
       probability: probabilities["N"],
-      points: getResultPointsFromProbability(probabilities["N"]),
+      points: getDynamicResultPoints(match, "N", probabilities),
       scoringMode: "dynamic"
     },
     "2": {
       result: "2",
       label: match.away,
       probability: probabilities["2"],
-      points: getResultPointsFromProbability(probabilities["2"]),
+      points: getDynamicResultPoints(match, "2", probabilities),
       scoringMode: "dynamic"
     }
   };
 }
 
 /* ============================================================
-   11. TEXTE COURT POUR L'INTERFACE PUBLIQUE
+   12. TEXTE COURT POUR L'INTERFACE PUBLIQUE
 
    Ici, on n'affiche volontairement PAS les probabilités.
    ============================================================ */
@@ -548,7 +599,7 @@ export function formatPointsScale(match) {
 }
 
 /* ============================================================
-   12. DÉTAILS INTERNES MATCHS
+   13. DÉTAILS INTERNES MATCHS
 
    Fonction utile pour debug/admin.
    Ne pas utiliser pour affichage public si on veut cacher les probabilités.
