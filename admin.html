@@ -215,7 +215,7 @@
       <p class="muted">
         Lorsque la Coupe du Monde est terminée, sélectionne le vrai champion.
         Le classement général sera recalculé automatiquement.
-        Les participants qui ont choisi le bon champion recevront les points prévus : entre 20 et 50 pts.
+        Les participants qui ont choisi le bon champion recevront les points prévus : entre 20 et 80 pts.
       </p>
 
       <div id="winner-current-result" class="scale-box">
@@ -233,7 +233,7 @@
       </div>
 
       <div id="winner-admin-scale" class="scale-box">
-        Barème Champion : 20 à 50 pts selon la difficulté du choix.
+        Barème Champion : 20 à 80 pts selon la difficulté du choix.
       </div>
     </div>
 
@@ -315,6 +315,7 @@
 
     function showToast(message, type = "") {
       const toast = $("#toast");
+
       toast.textContent = message;
       toast.className = "toast show " + type;
 
@@ -503,7 +504,7 @@
         <strong>Barème Champion</strong><br>
         Deadline participant : <strong>${formatWinnerChallengeDeadline()}</strong>.
         <br>
-        Les points affichés côté participant vont de <strong>20 à 50 pts</strong>.
+        Les points affichés côté participant vont de <strong>20 à 80 pts</strong>.
         <br>
         L’admin saisit ici uniquement le vrai champion final.
       `;
