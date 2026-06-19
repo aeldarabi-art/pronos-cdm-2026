@@ -7,7 +7,7 @@
 //
 // Challenge Champion du Monde :
 // - Choix verrouillé le 23 juin 2026 à 23h59 heure Maroc
-// - Barème de 20 à 50 pts selon la difficulté du choix
+// - Barème de 20 à 80 pts selon la difficulté du choix
 //
 // Les probabilités restent internes et ne doivent pas être affichées aux utilisateurs.
 
@@ -123,40 +123,42 @@ export const WINNER_CHALLENGE_POINTS = {
   "Suisse": 35,
   "Suède": 35,
 
-  // Surprises crédibles — 40 pts
-  "Côte d'Ivoire": 40,
-  "Iran": 40,
-  "Turquie": 40,
-  "Équateur": 40,
-  "Autriche": 40,
-  "Corée du Sud": 40,
-  "Norvège": 40,
-  "Australie": 40,
-  "Algérie": 40,
-  "Égypte": 40,
-  "Canada": 40,
-  "Ghana": 40,
-  "Écosse": 40,
+  // Surprises crédibles — 45 pts
+  "Côte d'Ivoire": 45,
+  "Iran": 45,
+  "Turquie": 45,
+  "Équateur": 45,
+  "Autriche": 45,
+  "Corée du Sud": 45,
+  "Norvège": 45,
+  "Australie": 45,
+  "Algérie": 45,
+  "Égypte": 45,
+  "Canada": 45,
+  "Ghana": 45,
+  "Écosse": 45,
 
-  // Grosses surprises — 45 pts
-  "Paraguay": 45,
-  "Tchéquie": 45,
-  "Bosnie-Herzégovine": 45,
-  "Cap-Vert": 45,
-  "Arabie Saoudite": 45,
-  "RD Congo": 45,
-  "Tunisie": 45,
-  "Ouzbékistan": 45,
+  // Grosses surprises — 60 pts
+  "Paraguay": 60,
+  "Tchéquie": 60,
+  "Bosnie-Herzégovine": 60,
+  "Cap-Vert": 60,
+  "Arabie Saoudite": 60,
+  "RD Congo": 60,
+  "Tunisie": 60,
+  "Ouzbékistan": 60,
 
-  // Énormes exploits — 50 pts
-  "Nouvelle-Zélande": 50,
-  "Afrique du Sud": 50,
-  "Panama": 50,
-  "Qatar": 50,
-  "Irak": 50,
-  "Jordanie": 50,
-  "Curaçao": 50,
-  "Haïti": 50
+  // Très gros exploits — 70 pts
+  "Nouvelle-Zélande": 70,
+  "Afrique du Sud": 70,
+  "Panama": 70,
+  "Qatar": 70,
+
+  // Énormes exploits — 80 pts
+  "Irak": 80,
+  "Jordanie": 80,
+  "Curaçao": 80,
+  "Haïti": 80
 };
 
 export function isWinnerChallengeOpen() {
@@ -164,7 +166,7 @@ export function isWinnerChallengeOpen() {
 }
 
 export function getWinnerChallengePoints(teamName) {
-  return WINNER_CHALLENGE_POINTS[teamName] || 50;
+  return WINNER_CHALLENGE_POINTS[teamName] || 80;
 }
 
 export function getWinnerChallengeTeams() {
