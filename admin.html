@@ -117,6 +117,11 @@
       color: #92400e;
     }
 
+    .badge-winner {
+      background: #ede9fe;
+      color: #5b21b6;
+    }
+
     .hidden {
       display: none !important;
     }
@@ -148,25 +153,27 @@
   <div class="logo">⚽ <span>Admin</span></div>
 
   <p class="subtitle">
-    Saisis les scores réels, rattrape les pronostics oubliés et supprime les utilisateurs de test.
+    Saisis les scores réels, rattrape les pronostics oubliés, gère le challenge Champion et supprime les utilisateurs de test.
   </p>
 
   <div class="admin-help">
     Cette page permet à l’admin de saisir un pronostic pour un participant, même si le match a déjà commencé ou est terminé.
     Elle permet aussi de supprimer un participant de test avec tous ses pronostics.
-    Les utilisateurs restent bloqués après le début du match sur la page normale.
     <br><br>
-    Le classement utilise le nouveau barème dynamique :
-    bon résultat = 2 à 10 points selon la probabilité du résultat pronostiqué ;
-    score exact = bonus +3 points ;
-    mauvais résultat = 0 point.
+    Le classement additionne maintenant :
+    <br>
+    1. les points des matchs ;
+    <br>
+    2. les points du challenge Champion du Monde, lorsque le vrai champion est renseigné.
+    <br><br>
+    Les probabilités des matchs restent visibles ici côté admin pour contrôle, mais elles ne sont pas affichées aux participants.
   </div>
 
   <div id="admin-login-card" class="admin-card">
     <h3>Connexion admin</h3>
 
     <p class="muted">
-      Entre le code admin pour accéder à la saisie des scores, aux pronostics oubliés et à la suppression des participants.
+      Entre le code admin pour accéder à la saisie des scores, aux pronostics oubliés, au challenge Champion et à la suppression des participants.
     </p>
 
     <div class="admin-row">
@@ -188,7 +195,7 @@
 
       <p class="muted">
         Choisis un participant existant. Tu peux ensuite lui ajouter un pronostic oublié ou le supprimer du groupe.
-        La suppression efface aussi tous ses pronostics.
+        La suppression efface aussi tous ses pronostics matchs et son choix Champion.
       </p>
 
       <div class="admin-row">
@@ -197,6 +204,36 @@
         <button id="btn-delete-member" class="btn btn-danger">
           Supprimer participant
         </button>
+      </div>
+    </div>
+
+    <div class="admin-section-title">Challenge Champion du Monde</div>
+
+    <div class="admin-card">
+      <h3>Définir le vrai champion</h3>
+
+      <p class="muted">
+        Lorsque la Coupe du Monde est terminée, sélectionne le vrai champion.
+        Le classement général sera recalculé automatiquement.
+        Les participants qui ont choisi le bon champion recevront les points prévus : entre 20 et 50 pts.
+      </p>
+
+      <div id="winner-current-result" class="scale-box">
+        Aucun champion réel renseigné pour le moment.
+      </div>
+
+      <div class="admin-row">
+        <select id="select-real-winner">
+          <option value="">Choisir le champion réel</option>
+        </select>
+
+        <button id="btn-save-real-winner" class="btn btn-primary">
+          Enregistrer le champion réel
+        </button>
+      </div>
+
+      <div id="winner-admin-scale" class="scale-box">
+        Barème Champion : 20 à 50 pts selon la difficulté du choix.
       </div>
     </div>
 
@@ -240,6 +277,7 @@
     </div>
 
     <div class="admin-section-title">Saisie des scores réels</div>
+
     <div id="admin-matches"></div>
   </div>
 
@@ -260,7 +298,11 @@
     import {
       calculatePredictionPoints,
       formatPointsScale,
-      getMatchPointsScale
+      getMatchPointsScale,
+      getWinnerChallengeTeams,
+      getWinnerChallengePoints,
+      calculateWinnerChallengePoints,
+      formatWinnerChallengeDeadline
     } from "./probabilities.js";
 
     const $ = (selector) => document.querySelector(selector);
@@ -269,6 +311,7 @@
     let groupCode = "";
     let members = [];
     let resultsByMatch = {};
+    let winnerChallengeResult = null;
 
     function showToast(message, type = "") {
       const toast = $("#toast");
@@ -387,6 +430,18 @@
       });
     }
 
+    async function loadWinnerChallengeResult() {
+      winnerChallengeResult = null;
+
+      const resultSnap = await getDoc(
+        doc(db, "groups", groupCode, "challengeResults", "winner")
+      );
+
+      if (resultSnap.exists()) {
+        winnerChallengeResult = resultSnap.data();
+      }
+    }
+
     function getMatchById(matchId) {
       return MATCHES.find((match) => match.id === matchId) || null;
     }
@@ -405,6 +460,98 @@
       });
     }
 
+    function renderWinnerAdminChallenge() {
+      const teams = getWinnerChallengeTeams();
+      const select = $("#select-real-winner");
+      const currentBox = $("#winner-current-result");
+      const scaleBox = $("#winner-admin-scale");
+
+      if (!select) return;
+
+      select.innerHTML = `<option value="">Choisir le champion réel</option>`;
+
+      teams.forEach((item) => {
+        const selected =
+          winnerChallengeResult && winnerChallengeResult.team === item.team
+            ? "selected"
+            : "";
+
+        select.innerHTML += `
+          <option value="${item.team}" ${selected}>
+            ${item.team} — ${item.points} pts
+          </option>
+        `;
+      });
+
+      if (winnerChallengeResult && winnerChallengeResult.team) {
+        currentBox.innerHTML = `
+          Champion réel actuellement enregistré :
+          <strong>${winnerChallengeResult.team}</strong>.
+          <br>
+          Points attribués aux bons pronostics :
+          <strong>${getWinnerChallengePoints(winnerChallengeResult.team)} pts</strong>.
+        `;
+      } else {
+        currentBox.innerHTML = `
+          Aucun champion réel renseigné pour le moment.
+          <br>
+          Les points du challenge Champion ne sont donc pas encore intégrés au classement.
+        `;
+      }
+
+      scaleBox.innerHTML = `
+        <strong>Barème Champion</strong><br>
+        Deadline participant : <strong>${formatWinnerChallengeDeadline()}</strong>.
+        <br>
+        Les points affichés côté participant vont de <strong>20 à 50 pts</strong>.
+        <br>
+        L’admin saisit ici uniquement le vrai champion final.
+      `;
+    }
+
+    async function saveRealWinner() {
+      const selectedTeam = $("#select-real-winner").value;
+
+      if (!selectedTeam) {
+        showToast("Choisis le champion réel", "error");
+        return;
+      }
+
+      const confirmed = confirm(
+        `Confirmer le champion réel : ${selectedTeam} ?\n\nLe classement général sera recalculé avec les points Champion.`
+      );
+
+      if (!confirmed) return;
+
+      const button = $("#btn-save-real-winner");
+      button.disabled = true;
+      button.textContent = "Enregistrement...";
+
+      try {
+        await setDoc(
+          doc(db, "groups", groupCode, "challengeResults", "winner"),
+          {
+            team: selectedTeam,
+            pointsIfCorrect: getWinnerChallengePoints(selectedTeam),
+            updatedAt: Date.now(),
+            updatedBy: "admin"
+          }
+        );
+
+        await loadWinnerChallengeResult();
+        await recalculateAndUpdateRanking();
+        await refreshAdminScreen();
+
+        showToast("Champion réel enregistré et classement recalculé", "success");
+      } catch (error) {
+        console.error(error);
+        showToast("Erreur lors de l’enregistrement du champion", "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Enregistrer le champion réel";
+      }
+    }
+
     function renderSelectedMatchScale() {
       const matchId = $("#select-match").value;
       const match = getMatchById(matchId);
@@ -417,16 +564,35 @@
 
       const scale = getMatchPointsScale(match);
 
+      const exactScoreText =
+        scale["1"].scoringMode === "legacy"
+          ? "Score exact : 5 pts"
+          : "Score exact : +3 pts";
+
+      let detailHtml = "";
+
+      if (scale["1"].probability === null) {
+        detailHtml = `
+          <span class="muted">
+            Ancien barème appliqué : score exact = 5 pts, bon résultat = 3 pts.
+          </span>
+        `;
+      } else {
+        detailHtml = `
+          <span class="muted">
+            Détail admin :
+            ${match.home} = ${scale["1"].points} pts (${scale["1"].probability} %),
+            Nul = ${scale["N"].points} pts (${scale["N"].probability} %),
+            ${match.away} = ${scale["2"].points} pts (${scale["2"].probability} %).
+          </span>
+        `;
+      }
+
       box.innerHTML = `
         <strong>${match.home} vs ${match.away}</strong><br>
-        ${formatPointsScale(match)} • Score exact : +3 pts
+        ${formatPointsScale(match)} • ${exactScoreText}
         <br>
-        <span class="muted">
-          Détail :
-          ${match.home} = ${scale["1"].points} pts (${scale["1"].probability} %),
-          Nul = ${scale["N"].points} pts (${scale["N"].probability} %),
-          ${match.away} = ${scale["2"].points} pts (${scale["2"].probability} %).
-        </span>
+        ${detailHtml}
       `;
 
       const resultSelect = $("#select-result");
@@ -468,7 +634,13 @@
       for (const match of MATCHES) {
         const existingResult = resultsByMatch[match.id] || null;
         const started = isMatchStarted(match);
+        const scale = getMatchPointsScale(match);
         const scaleText = formatPointsScale(match);
+
+        const exactScoreText =
+          scale["1"].scoringMode === "legacy"
+            ? "Score exact : 5 pts"
+            : "Score exact : +3 pts";
 
         const card = document.createElement("div");
         card.className = "admin-card";
@@ -490,7 +662,7 @@
 
           <div class="muted" style="margin-top:8px;">
             <span class="badge badge-scale">Barème</span>
-            ${scaleText} • Score exact : +3 pts
+            ${scaleText} • ${exactScoreText}
           </div>
 
           <div class="admin-row">
@@ -549,6 +721,7 @@
 
     async function recalculateAndUpdateRanking() {
       await loadResults();
+      await loadWinnerChallengeResult();
 
       const predictionsSnapshot = await getDocs(
         collection(db, "groups", groupCode, "predictions")
@@ -559,6 +732,11 @@
       );
 
       const pointsByPseudo = {};
+
+      membersSnapshot.forEach((memberDoc) => {
+        const member = memberDoc.data();
+        pointsByPseudo[member.pseudo] = 0;
+      });
 
       predictionsSnapshot.forEach((docSnap) => {
         const prediction = docSnap.data();
@@ -586,6 +764,29 @@
         pointsByPseudo[prediction.pseudo] += calculation.points;
       });
 
+      if (winnerChallengeResult && winnerChallengeResult.team) {
+        const winnerPredictionsSnapshot = await getDocs(
+          collection(db, "groups", groupCode, "winnerPredictions")
+        );
+
+        winnerPredictionsSnapshot.forEach((docSnap) => {
+          const prediction = docSnap.data();
+
+          const calculation = calculateWinnerChallengePoints(
+            prediction.team,
+            winnerChallengeResult.team
+          );
+
+          if (!calculation) return;
+
+          if (!pointsByPseudo[prediction.pseudo]) {
+            pointsByPseudo[prediction.pseudo] = 0;
+          }
+
+          pointsByPseudo[prediction.pseudo] += calculation.points;
+        });
+      }
+
       for (const memberDoc of membersSnapshot.docs) {
         const member = memberDoc.data();
         const newPoints = pointsByPseudo[member.pseudo] || 0;
@@ -599,8 +800,10 @@
     async function refreshAdminScreen() {
       await loadMembers();
       await loadResults();
+      await loadWinnerChallengeResult();
 
       renderMemberSelect();
+      renderWinnerAdminChallenge();
       renderMatchSelect();
       await renderAdminResults();
     }
@@ -709,7 +912,7 @@
       }
 
       const confirmed = confirm(
-        `Confirmer la suppression de "${pseudo}" ?\n\nTous ses pronostics seront aussi supprimés. Cette action est irréversible.`
+        `Confirmer la suppression de "${pseudo}" ?\n\nTous ses pronostics matchs et son choix Champion seront aussi supprimés. Cette action est irréversible.`
       );
 
       if (!confirmed) return;
@@ -734,6 +937,10 @@
             );
           }
         });
+
+        deletePromises.push(
+          deleteDoc(doc(db, "groups", groupCode, "winnerPredictions", pseudo))
+        );
 
         await Promise.all(deletePromises);
 
@@ -780,6 +987,8 @@
     $("#btn-save-admin-prediction").addEventListener("click", saveAdminPrediction);
 
     $("#btn-delete-member").addEventListener("click", deleteMemberAndPredictions);
+
+    $("#btn-save-real-winner").addEventListener("click", saveRealWinner);
 
     $("#btn-load-group").addEventListener("click", async () => {
       groupCode = $("#input-admin-code").value.trim().toUpperCase();
