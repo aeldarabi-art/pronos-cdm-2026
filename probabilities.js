@@ -4,6 +4,7 @@
 // Barème joueur :
 // - Avant le 20 juin 2026 : ancien barème 5 / 3 / 0
 // - À partir du 20 juin 2026 : bon résultat 2 à 10 pts + bonus score exact +3 pts
+// Les probabilités restent internes et ne doivent pas être affichées aux utilisateurs.
 
 /* ============================================================
    1. NOTES DE FORCE INTERNES DES ÉQUIPES
@@ -70,11 +71,8 @@ const DEFAULT_RATING = 1500;
    2. DATE DE BASCULE DU NOUVEAU BARÈME
    ============================================================ */
 
-// Les matchs dont la date est >= 2026-06-20 utilisent le nouveau barème.
-// Les matchs avant cette date gardent l’ancien barème :
-// Score exact = 5 pts
-// Bon résultat = 3 pts
-// Mauvais résultat = 0 pt
+// Matchs avant le 20 juin 2026 : ancien barème.
+// Matchs à partir du 20 juin 2026 : nouveau barème dynamique.
 const NEW_SCORING_START_DATE = "2026-06-20";
 
 function isNewScoringApplicable(match) {
@@ -108,13 +106,6 @@ function roundPercent(value) {
 
 /* ============================================================
    4. PROBABILITÉ DU NUL
-   Le nul dépend de l'écart de force.
-
-   Plus les équipes sont proches :
-   - le nul est relativement probable.
-
-   Plus l'écart est élevé :
-   - le nul devient une vraie surprise.
    ============================================================ */
 
 function getDrawProbabilityFromRatingDiff(diff) {
@@ -130,19 +121,10 @@ function getDrawProbabilityFromRatingDiff(diff) {
 }
 
 /* ============================================================
-   5. CALCUL DES PROBABILITÉS 1 / N / 2
+   5. CALCUL DES PROBABILITÉS INTERNES 1 / N / 2
 
-   Résultat retourné :
-   {
-     "1": probabilité victoire équipe domicile,
-     "N": probabilité match nul,
-     "2": probabilité victoire équipe extérieur
-   }
-
-   Formule :
-   - On utilise une logique type Elo.
-   - Le diviseur 650 rend la formule plus progressive,
-     car notre échelle de notes est large : 1050 à 1950.
+   Ces probabilités servent uniquement au moteur de calcul.
+   Elles ne doivent pas être affichées aux utilisateurs.
    ============================================================ */
 
 export function getMatchProbabilities(match) {
@@ -159,13 +141,9 @@ export function getMatchProbabilities(match) {
 
   const diff = homeRating - awayRating;
 
-  // Probabilité de victoire de l'équipe à domicile hors nul
   const expectedHome = 1 / (1 + Math.pow(10, -diff / 650));
 
-  // Probabilité propre du nul
   const drawProbability = getDrawProbabilityFromRatingDiff(diff);
-
-  // On répartit le reste entre victoire domicile et victoire extérieur
   const remainingProbability = 1 - drawProbability;
 
   const homeProbability = expectedHome * remainingProbability;
@@ -173,8 +151,6 @@ export function getMatchProbabilities(match) {
 
   const p1 = roundPercent(homeProbability);
   const pN = roundPercent(drawProbability);
-
-  // Correction d'arrondi pour que le total fasse exactement 100 %
   const p2 = 100 - p1 - pN;
 
   return {
@@ -187,10 +163,9 @@ export function getMatchProbabilities(match) {
 /* ============================================================
    6. ANCIEN BARÈME — MATCHS AVANT LE 20 JUIN 2026
 
-   Règles :
-   - Score exact = 5 pts
-   - Bon résultat = 3 pts
-   - Mauvais résultat = 0 pt
+   Score exact = 5 pts
+   Bon résultat = 3 pts
+   Mauvais résultat = 0 pt
    ============================================================ */
 
 function calculateLegacyPredictionPoints(prediction, realHome, realAway) {
@@ -275,12 +250,6 @@ function calculateLegacyPredictionPoints(prediction, realHome, realAway) {
 
    Plus le résultat pronostiqué est improbable,
    plus il rapporte de points.
-
-   Exemple :
-   - Favori à 75 % : 2 pts
-   - Résultat à 45 % : 5 pts
-   - Nul surprise à 15 % : 8 pts
-   - Exploit à moins de 6 % : 10 pts
    ============================================================ */
 
 export function getResultPointsFromProbability(probability) {
@@ -301,14 +270,13 @@ export function getResultPointsFromProbability(probability) {
 /* ============================================================
    8. CALCUL DES POINTS D'UN PRONOSTIC
 
-   Règle de transition :
-   - Avant le 20 juin 2026 :
-     ancien barème 5 / 3 / 0
+   Avant le 20 juin :
+   - ancien barème 5 / 3 / 0
 
-   - À partir du 20 juin 2026 :
-     bon résultat = 2 à 10 pts selon probabilité
-     score exact = bonus +3 pts
-     mauvais résultat = 0 pt
+   À partir du 20 juin :
+   - bon résultat = 2 à 10 pts
+   - score exact = bonus +3 pts
+   - mauvais résultat = 0 pt
    ============================================================ */
 
 export function calculatePredictionPoints(prediction, realHome, realAway, match) {
@@ -323,8 +291,6 @@ export function calculatePredictionPoints(prediction, realHome, realAway, match)
     return null;
   }
 
-  // Application prospective uniquement :
-  // les matchs avant le 20 juin restent sur l’ancien barème.
   if (!isNewScoringApplicable(match)) {
     return calculateLegacyPredictionPoints(prediction, realHome, realAway);
   }
@@ -379,14 +345,11 @@ export function calculatePredictionPoints(prediction, realHome, realAway, match)
 }
 
 /* ============================================================
-   9. BARÈME D'UN MATCH
+   9. BARÈME VISIBLE D'UN MATCH
 
-   Permet d'afficher dans l'application :
-   Maroc : 5 pts
-   Nul : 7 pts
-   Écosse : 8 pts
-
-   Pour les matchs avant le 20 juin, on affiche l’ancien barème.
+   Attention :
+   - Les points sont visibles.
+   - Les probabilités restent internes.
    ============================================================ */
 
 export function getMatchPointsScale(match) {
@@ -445,6 +408,8 @@ export function getMatchPointsScale(match) {
 
 /* ============================================================
    10. TEXTE COURT POUR L'INTERFACE
+
+   Ici, on n'affiche volontairement PAS les probabilités.
    ============================================================ */
 
 export function formatPointsScale(match) {
@@ -454,11 +419,15 @@ export function formatPointsScale(match) {
     return `${scale["1"].label} : 3 pts • Nul : 3 pts • ${scale["2"].label} : 3 pts`;
   }
 
-  return `${scale["1"].label} : ${scale["1"].points} pts (${scale["1"].probability} %) • Nul : ${scale["N"].points} pts (${scale["N"].probability} %) • ${scale["2"].label} : ${scale["2"].points} pts (${scale["2"].probability} %)`;
+  return `${scale["1"].label} : ${scale["1"].points} pts • Nul : ${scale["N"].points} pts • ${scale["2"].label} : ${scale["2"].points} pts`;
 }
 
 /* ============================================================
-   11. TEXTE DÉTAILLÉ POUR L'INTERFACE OU L'ADMIN
+   11. DÉTAILS INTERNES
+
+   Fonction utile pour debug/admin futur.
+   Ne pas utiliser pour affichage utilisateur public
+   si on veut cacher les probabilités.
    ============================================================ */
 
 export function getMatchProbabilityDetails(match) {
