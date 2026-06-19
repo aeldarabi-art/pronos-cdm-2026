@@ -11,8 +11,9 @@
 //
 // Challenge Classements groupes :
 // - Choix verrouillé le 23 juin 2026 à 23h59 heure Maroc
-// - 4 pts par équipe placée exactement au bon rang
-// - 16 pts maximum par groupe
+// - 1 pt par équipe placée exactement au bon rang
+// - 4 pts maximum par groupe
+// - 48 pts maximum sur les 12 groupes
 //
 // Les probabilités restent internes et ne doivent pas être affichées aux utilisateurs.
 
@@ -251,7 +252,8 @@ export function formatWinnerChallengeDeadline() {
 // Même deadline que le challenge Champion.
 export const GROUP_STANDINGS_DEADLINE = "2026-06-23T23:59:59+01:00";
 
-export const GROUP_STANDING_POINTS_PER_EXACT_POSITION = 4;
+// Nouveau barème équilibré : 1 point par position exacte.
+export const GROUP_STANDING_POINTS_PER_EXACT_POSITION = 1;
 
 export function isGroupStandingsChallengeOpen() {
   return new Date() <= new Date(GROUP_STANDINGS_DEADLINE);
@@ -283,11 +285,13 @@ export function isValidGroupStanding(groupLetter, standing) {
 }
 
 export function calculateSingleGroupStandingPoints(predictedStanding, realStanding) {
+  const maxPoints = 4 * GROUP_STANDING_POINTS_PER_EXACT_POSITION;
+
   if (!Array.isArray(predictedStanding) || !Array.isArray(realStanding)) {
     return {
       points: 0,
       exactPositions: 0,
-      maxPoints: 16
+      maxPoints
     };
   }
 
