@@ -26,6 +26,7 @@ import {
 /* ============================================================
    ETAT GLOBAL
    ============================================================ */
+
 let MATCHES = [];
 let currentUser = null;
 let currentGroup = null;
@@ -47,6 +48,7 @@ const $$ = (sel) => document.querySelectorAll(sel);
 /* ============================================================
    UTILITAIRES
    ============================================================ */
+
 function showToast(message, type = "") {
   const toast = $("#toast");
 
@@ -121,6 +123,7 @@ function formatPredictionText(prediction, match) {
 /* ============================================================
    CHARGEMENT DES MATCHS
    ============================================================ */
+
 async function loadMatches() {
   try {
     const res = await fetch("./matches.json");
@@ -135,6 +138,7 @@ async function loadMatches() {
 /* ============================================================
    FIRESTORE - GROUPES
    ============================================================ */
+
 async function createGroup(groupName, pseudo) {
   let code = generateGroupCode();
 
@@ -190,6 +194,7 @@ async function joinGroup(code, pseudo) {
 /* ============================================================
    PRONOSTICS MATCHS
    ============================================================ */
+
 async function savePrediction(matchId, predictionData) {
   const predId = `${currentUser.pseudo}_${matchId}`;
   const predRef = doc(db, "groups", currentGroup.code, "predictions", predId);
@@ -237,6 +242,7 @@ function listenToResults() {
 /* ============================================================
    CHALLENGE CHAMPION DU MONDE
    ============================================================ */
+
 async function loadMyWinnerPrediction() {
   winnerPrediction = null;
 
@@ -430,12 +436,14 @@ async function handleSaveWinnerPrediction() {
 /* ============================================================
    CALCUL & MAJ DU CLASSEMENT
    ============================================================ */
+
 async function recalculateAndUpdateRanking() {
   if (!currentGroup) return;
 
   const pointsByPseudo = {};
 
   /* ---------- Points des matchs ---------- */
+
   const predsRef = collection(db, "groups", currentGroup.code, "predictions");
   const predsSnap = await getDocs(predsRef);
 
@@ -461,6 +469,7 @@ async function recalculateAndUpdateRanking() {
   });
 
   /* ---------- Points du challenge Champion ---------- */
+
   await loadWinnerChallengeResult();
 
   if (winnerChallengeResult && winnerChallengeResult.team) {
@@ -492,6 +501,7 @@ async function recalculateAndUpdateRanking() {
   }
 
   /* ---------- Mise à jour des membres ---------- */
+
   const membersRef = collection(db, "groups", currentGroup.code, "members");
   const membersSnap = await getDocs(membersRef);
 
@@ -528,6 +538,7 @@ function listenToMembers() {
 /* ============================================================
    RENDU - MATCHS
    ============================================================ */
+
 function renderMatches() {
   const container = $("#matches-list");
 
@@ -567,27 +578,28 @@ function renderMatches() {
     const scale = getMatchPointsScale(match);
 
     const pointsScaleHtml = `
-      <div style="
-        margin-top:8px;
-        padding:8px 10px;
-        border-radius:10px;
-        background:#f8fafc;
-        border:1px solid #e5e7eb;
-        font-size:12px;
-        color:#334155;
-        line-height:1.5;
-      ">
-        <div style="font-weight:700;">
-          ${scale["1"].label} : ${scale["1"].points} pts
-          ·
-          Nul : ${scale["N"].points} pts
-          ·
-          ${scale["2"].label} : ${scale["2"].points} pts
+      <div class="match-scale-box">
+        <div class="match-scale-title">Barème</div>
+
+        <div class="match-scale-line">
+          <span>${scale["1"].label}</span>
+          <strong>${scale["1"].points} pts</strong>
         </div>
-        <div style="font-size:11px;color:#64748b;margin-top:2px;">
+
+        <div class="match-scale-line">
+          <span>Nul</span>
+          <strong>${scale["N"].points} pts</strong>
+        </div>
+
+        <div class="match-scale-line">
+          <span>${scale["2"].label}</span>
+          <strong>${scale["2"].points} pts</strong>
+        </div>
+
+        <div class="match-scale-note">
           ${
             scale["1"].scoringMode === "legacy"
-              ? "Ancien barème : score exact = 5 pts"
+              ? "Score exact : 5 pts"
               : "Score exact : +3 pts"
           }
         </div>
@@ -688,6 +700,7 @@ function renderMatches() {
 /* ============================================================
    RENDU - CLASSEMENT
    ============================================================ */
+
 function renderRanking() {
   const container = $("#ranking-list");
 
@@ -736,6 +749,7 @@ function renderRanking() {
 /* ============================================================
    MODAL PRONOSTIC MATCH
    ============================================================ */
+
 let selectedMode = "result";
 let selectedResult = null;
 
@@ -865,6 +879,7 @@ async function handleSavePrediction() {
 /* ============================================================
    NAVIGATION ENTRE ECRANS
    ============================================================ */
+
 function showScreen(screenId) {
   $$(".screen").forEach((screen) => screen.classList.remove("active"));
   $(`#${screenId}`).classList.add("active");
@@ -886,6 +901,7 @@ function switchTab(tabName) {
 /* ============================================================
    SESSION LOCALE
    ============================================================ */
+
 function saveSession() {
   localStorage.setItem("wc2026_pseudo", currentUser.pseudo);
 
@@ -927,6 +943,7 @@ function loadSession() {
 /* ============================================================
    ENTREE DANS LE GROUPE
    ============================================================ */
+
 async function enterGroup() {
   $("#current-pseudo").textContent = currentUser.pseudo;
   $("#current-group-name").textContent = currentGroup.name;
@@ -951,6 +968,7 @@ async function enterGroup() {
 /* ============================================================
    EVENT LISTENERS
    ============================================================ */
+
 function setupEventListeners() {
   $("#btn-login").addEventListener("click", () => {
     const pseudo = sanitizePseudo($("#input-pseudo").value);
@@ -1100,6 +1118,7 @@ function setupEventListeners() {
 /* ============================================================
    INIT
    ============================================================ */
+
 async function init() {
   setupEventListeners();
 
