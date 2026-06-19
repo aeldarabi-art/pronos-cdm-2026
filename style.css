@@ -137,6 +137,11 @@ select:focus {
   background: #fff;
 }
 
+select.input-error {
+  border-color: var(--accent) !important;
+  background: #fff5f5 !important;
+}
+
 .btn {
   width: 100%;
   padding: 14px;
@@ -151,6 +156,11 @@ select:focus {
 
 .btn:active {
   transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-primary {
@@ -790,6 +800,78 @@ select:focus {
 }
 
 /* ============================================================
+   CHALLENGE CLASSEMENT DES GROUPES
+   ============================================================ */
+
+#groups-prediction-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.group-standing-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.group-standing-card h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+
+.group-standing-teams {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.group-standing-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.group-standing-row {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.group-standing-rank {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #e6f7ed;
+  color: var(--primary-dark);
+  font-weight: 800;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.group-standing-select {
+  margin-bottom: 0;
+  padding: 11px 12px;
+  font-size: 14px;
+}
+
+#groups-current-choice {
+  border-left: 4px solid var(--primary);
+}
+
+#groups-locked-message {
+  border-left: 4px solid var(--accent);
+}
+
+/* ============================================================
    CORRECTION AFFICHAGE CARTES MATCHS
    ============================================================ */
 
@@ -905,6 +987,12 @@ select:focus {
 }
 
 /* ===================== RESPONSIVE ===================== */
+@media (min-width: 760px) {
+  #groups-prediction-list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 900px) {
   .match-card {
     grid-template-columns: 1fr !important;
@@ -948,12 +1036,32 @@ select:focus {
   }
 
   .tab-btn {
-    font-size: 12px;
-    padding: 12px 4px;
+    font-size: 11px;
+    padding: 12px 3px;
   }
 
   .rules-list li {
     align-items: flex-start;
+  }
+
+  .group-standing-card {
+    padding: 14px;
+  }
+
+  .group-standing-row {
+    grid-template-columns: 30px 1fr;
+    gap: 8px;
+  }
+
+  .group-standing-rank {
+    width: 30px;
+    height: 30px;
+    font-size: 13px;
+  }
+
+  .group-standing-select {
+    font-size: 13px;
+    padding: 10px 11px;
   }
 }
 
