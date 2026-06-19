@@ -3,22 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Pronos Coupe du Monde 2026</title>
+
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
 </head>
+
 <body>
 
   <!-- ===================== ECRAN LOGIN ===================== -->
   <section id="screen-login" class="screen active">
     <div class="card login-card">
       <div class="logo">⚽ <span>Pronos 2026</span></div>
+
       <h1>Coupe du Monde 2026</h1>
       <p class="subtitle">Entre ton pseudo pour commencer</p>
 
       <input id="input-pseudo" type="text" placeholder="Ton pseudo" maxlength="20" />
-      <button id="btn-login" class="btn btn-primary">Continuer</button>
+
+      <button id="btn-login" class="btn btn-primary">
+        Continuer
+      </button>
 
       <p id="login-error" class="error-msg"></p>
     </div>
@@ -28,27 +35,51 @@
   <section id="screen-group" class="screen">
     <div class="card group-card">
       <div class="logo">⚽ <span>Pronos 2026</span></div>
+
       <h1>Salut, <span id="welcome-pseudo"></span> 👋</h1>
       <p class="subtitle">Rejoins un groupe ou crée le tien</p>
 
       <div class="group-actions">
         <div class="group-box">
           <h3>Rejoindre un groupe</h3>
-          <input id="input-join-code" type="text" placeholder="Code d'invitation" maxlength="8" />
-          <button id="btn-join-group" class="btn btn-secondary">Rejoindre</button>
+
+          <input
+            id="input-join-code"
+            type="text"
+            placeholder="Code d'invitation"
+            maxlength="8"
+          />
+
+          <button id="btn-join-group" class="btn btn-secondary">
+            Rejoindre
+          </button>
         </div>
 
-        <div class="divider"><span>OU</span></div>
+        <div class="divider">
+          <span>OU</span>
+        </div>
 
         <div class="group-box">
           <h3>Créer un groupe</h3>
-          <input id="input-group-name" type="text" placeholder="Nom du groupe" maxlength="25" />
-          <button id="btn-create-group" class="btn btn-primary">Créer</button>
+
+          <input
+            id="input-group-name"
+            type="text"
+            placeholder="Nom du groupe"
+            maxlength="25"
+          />
+
+          <button id="btn-create-group" class="btn btn-primary">
+            Créer
+          </button>
         </div>
       </div>
 
       <p id="group-error" class="error-msg"></p>
-      <button id="btn-logout-1" class="btn btn-link">Changer de pseudo</button>
+
+      <button id="btn-logout-1" class="btn btn-link">
+        Changer de pseudo
+      </button>
     </div>
   </section>
 
@@ -58,56 +89,180 @@
       <div class="header-left">
         <div class="logo">⚽ <span>Pronos 2026</span></div>
       </div>
+
       <div class="header-right">
         <div class="group-info">
           <span id="current-group-name" class="group-name"></span>
-          <span class="group-code-tag">Code: <strong id="current-group-code"></strong></span>
+          <span class="group-code-tag">
+            Code: <strong id="current-group-code"></strong>
+          </span>
         </div>
+
         <div class="user-info">
           <span id="current-pseudo"></span>
-          <button id="btn-logout-2" class="btn btn-icon" title="Déconnexion">⏏</button>
+
+          <button id="btn-logout-2" class="btn btn-icon" title="Déconnexion">
+            ⏏
+          </button>
         </div>
       </div>
     </header>
 
+    <!-- ===================== ONGLETS ===================== -->
     <nav class="tabs">
-      <button class="tab-btn active" data-tab="matches">🏆 Matchs</button>
-      <button class="tab-btn" data-tab="ranking">📊 Classement</button>
-      <button class="tab-btn" data-tab="rules">📋 Règles</button>
+      <button class="tab-btn active" data-tab="matches">
+        🏟️ Matchs
+      </button>
+
+      <button class="tab-btn" data-tab="winner">
+        🏆 Champion
+      </button>
+
+      <button class="tab-btn" data-tab="groups">
+        📋 Classements groupes
+      </button>
+
+      <button class="tab-btn" data-tab="ranking">
+        📊 Classement
+      </button>
+
+      <button class="tab-btn" data-tab="rules">
+        📘 Règles
+      </button>
     </nav>
 
-    <!-- TAB MATCHS -->
+    <!-- ===================== TAB MATCHS ===================== -->
     <div id="tab-matches" class="tab-content active">
       <div id="matches-list" class="matches-list">
-        <!-- Généré dynamiquement -->
+        <!-- Généré dynamiquement par app.js -->
       </div>
     </div>
 
-    <!-- TAB CLASSEMENT -->
+    <!-- ===================== TAB CHAMPION ===================== -->
+    <div id="tab-winner" class="tab-content">
+      <div class="rules-card">
+        <h2>Challenge Champion du Monde</h2>
+
+        <p class="subtitle" style="text-align:left;margin-bottom:16px;">
+          Choisis l’équipe qui remportera la Coupe du Monde 2026.
+          Plus le choix est difficile, plus il rapporte de points.
+        </p>
+
+        <div class="admin-help" style="margin-bottom:16px;">
+          <strong>Date limite :</strong>
+          <span id="winner-deadline-label">23 juin 2026 à 23h59</span>
+          <br>
+          Après cette date, le choix sera verrouillé.
+        </div>
+
+        <div id="winner-current-choice" class="admin-help" style="display:none;">
+          <!-- Généré par app.js -->
+        </div>
+
+        <div id="winner-form">
+          <label for="select-winner-team" style="font-weight:700;display:block;margin-bottom:8px;">
+            Ton champion :
+          </label>
+
+          <select id="select-winner-team">
+            <option value="">Choisir une équipe</option>
+            <!-- Options générées par app.js -->
+          </select>
+
+          <div id="winner-points-preview" class="admin-help" style="margin-top:12px;display:none;">
+            <!-- Généré par app.js -->
+          </div>
+
+          <button id="btn-save-winner" class="btn btn-primary" style="margin-top:12px;">
+            Valider mon champion
+          </button>
+
+          <p id="winner-error" class="error-msg"></p>
+        </div>
+
+        <div id="winner-locked-message" class="admin-help" style="display:none;">
+          Le challenge Champion est maintenant verrouillé. Les choix ne peuvent plus être modifiés.
+        </div>
+
+        <h2 style="margin-top:24px;">Barème</h2>
+
+        <ul class="rules-list">
+          <li>
+            <span class="points-tag gold">20 pts</span>
+            Très grands favoris.
+          </li>
+          <li>
+            <span class="points-tag silver">25 à 35 pts</span>
+            Favoris et outsiders sérieux.
+          </li>
+          <li>
+            <span class="points-tag bronze">40 à 50 pts</span>
+            Surprises et très gros exploits.
+          </li>
+        </ul>
+
+        <p class="subtitle" style="text-align:left;margin-top:12px;">
+          Les probabilités restent internes. Les participants voient uniquement les points à gagner.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===================== TAB CLASSEMENTS GROUPES ===================== -->
+    <div id="tab-groups" class="tab-content">
+      <div class="rules-card">
+        <h2>Challenge Classements groupes</h2>
+
+        <p class="subtitle" style="text-align:left;">
+          Ce challenge sera ajouté dans une prochaine étape.
+        </p>
+
+        <ul class="rules-list">
+          <li>
+            Prédire les équipes qualifiées par groupe.
+          </li>
+          <li>
+            Attribuer des points selon l’ordre exact et les équipes qualifiées.
+          </li>
+          <li>
+            Le barème sera défini séparément.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ===================== TAB CLASSEMENT GENERAL ===================== -->
     <div id="tab-ranking" class="tab-content">
       <div class="ranking-header">
         <h2>Classement général</h2>
         <span class="live-badge">🔴 En direct</span>
       </div>
+
       <div id="ranking-list" class="ranking-list">
-        <!-- Généré dynamiquement -->
+        <!-- Généré dynamiquement par app.js -->
       </div>
     </div>
 
-    <!-- TAB REGLES -->
+    <!-- ===================== TAB REGLES ===================== -->
     <div id="tab-rules" class="tab-content">
       <div class="rules-card">
-        <h2>Barème de points</h2>
+        <h2>Barème des matchs</h2>
 
         <ul class="rules-list">
           <li>
-            <span class="points-tag gold">2 à 10 pts</span>
-            Bon résultat trouvé : victoire équipe 1, nul ou victoire équipe 2.
+            <span class="points-tag gold">Avant le 20 juin</span>
+            Ancien barème : score exact = 5 pts, bon résultat = 3 pts, mauvais résultat = 0 pt.
           </li>
+
           <li>
-            <span class="points-tag silver">+3 pts</span>
-            Bonus score exact, uniquement si le score pronostiqué est parfaitement correct.
+            <span class="points-tag silver">À partir du 20 juin</span>
+            Bon résultat trouvé : entre 2 et 10 pts selon la difficulté du résultat.
           </li>
+
+          <li>
+            <span class="points-tag bronze">+3 pts</span>
+            Bonus score exact à partir du nouveau barème.
+          </li>
+
           <li>
             <span class="points-tag bronze">0 pt</span>
             Mauvais résultat pronostiqué.
@@ -118,24 +273,26 @@
 
         <ul class="rules-list">
           <li>Chaque équipe possède une note de force interne.</li>
-          <li>Cette note sert à calculer la probabilité de chaque résultat : victoire équipe 1, nul, victoire équipe 2.</li>
+          <li>Cette note sert à calculer la difficulté de chaque résultat : victoire équipe 1, nul ou victoire équipe 2.</li>
           <li>Plus un résultat est improbable, plus il rapporte de points.</li>
-          <li>Un résultat très probable peut rapporter seulement 2 ou 3 points.</li>
-          <li>Une surprise peut rapporter jusqu’à 10 points.</li>
           <li>Le nul est différencié selon le match : un nul entre deux équipes proches ne rapporte pas autant qu’un nul d’un outsider contre un favori.</li>
+          <li>Les probabilités restent internes ; les participants voient uniquement les points à gagner.</li>
         </ul>
 
-        <h2>Exemples</h2>
+        <h2>Challenge Champion</h2>
 
         <ul class="rules-list">
           <li>
-            Favori très fort contre outsider : victoire du favori = peu de points ; nul ou victoire outsider = beaucoup de points.
+            <span class="points-tag gold">20 à 50 pts</span>
+            Choix du futur champion du monde.
           </li>
+
           <li>
-            Match équilibré : les points sont plus proches entre victoire équipe 1, nul et victoire équipe 2.
+            Le choix est verrouillé le 23 juin 2026 à 23h59.
           </li>
+
           <li>
-            Si tu pronostiques le score exact, tu gagnes les points du bon résultat + 3 points de bonus.
+            Les points sont attribués uniquement si l’équipe choisie remporte la Coupe du Monde.
           </li>
         </ul>
 
@@ -144,6 +301,7 @@
         <ul class="rules-list">
           <li>Tu peux pronostiquer un score exact OU juste un résultat 1 / N / 2.</li>
           <li>Impossible de modifier ton pronostic une fois le match commencé.</li>
+          <li>Impossible de modifier ton champion après la deadline.</li>
           <li>Le classement se met à jour automatiquement dès que les résultats sont saisis.</li>
           <li>La base de force des équipes pourra être actualisée après chaque grande phase de la compétition.</li>
         </ul>
@@ -151,16 +309,22 @@
     </div>
   </section>
 
-  <!-- Modal Pronostic -->
+  <!-- ===================== MODAL PRONOSTIC MATCH ===================== -->
   <div id="modal-overlay" class="modal-overlay">
     <div class="modal">
       <button id="modal-close" class="modal-close">✕</button>
+
       <h2 id="modal-title">Pronostic</h2>
       <p id="modal-match-info" class="modal-match-info"></p>
 
       <div class="predict-mode-switch">
-        <button class="mode-btn active" data-mode="result">1 / N / 2</button>
-        <button class="mode-btn" data-mode="score">Score exact</button>
+        <button class="mode-btn active" data-mode="result">
+          1 / N / 2
+        </button>
+
+        <button class="mode-btn" data-mode="score">
+          Score exact
+        </button>
       </div>
 
       <!-- Mode résultat -->
@@ -169,9 +333,11 @@
           <button class="result-opt" data-val="1">
             <span id="opt-home-label">1</span>
           </button>
+
           <button class="result-opt" data-val="N">
             <span>Nul</span>
           </button>
+
           <button class="result-opt" data-val="2">
             <span id="opt-away-label">2</span>
           </button>
@@ -185,7 +351,9 @@
             <span id="score-home-label"></span>
             <input type="number" id="input-score-home" min="0" max="20" />
           </div>
+
           <span class="score-sep">-</span>
+
           <div class="score-team">
             <span id="score-away-label"></span>
             <input type="number" id="input-score-away" min="0" max="20" />
@@ -193,12 +361,15 @@
         </div>
       </div>
 
-      <button id="btn-save-prediction" class="btn btn-primary">Valider mon pronostic</button>
+      <button id="btn-save-prediction" class="btn btn-primary">
+        Valider mon pronostic
+      </button>
+
       <p id="modal-error" class="error-msg"></p>
     </div>
   </div>
 
-  <!-- Toast notification -->
+  <!-- ===================== TOAST ===================== -->
   <div id="toast" class="toast"></div>
 
   <script type="module" src="app.js"></script>
