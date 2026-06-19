@@ -12,7 +12,7 @@
   <style>
     body {
       padding: 20px;
-      max-width: 980px;
+      max-width: 1100px;
       margin: 0 auto;
     }
 
@@ -117,11 +117,6 @@
       color: #92400e;
     }
 
-    .badge-winner {
-      background: #ede9fe;
-      color: #5b21b6;
-    }
-
     .hidden {
       display: none !important;
     }
@@ -146,6 +141,71 @@
       font-size: 13px;
       line-height: 1.5;
     }
+
+    .admin-groups-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    @media (min-width: 760px) {
+      .admin-groups-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .admin-group-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 14px;
+      background: #ffffff;
+    }
+
+    .admin-group-card h4 {
+      color: var(--primary);
+      margin-bottom: 8px;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .admin-group-teams {
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .admin-group-row {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .admin-group-rank {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #e6f7ed;
+      color: var(--primary-dark);
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .admin-group-select {
+      margin-bottom: 0;
+      padding: 11px 12px;
+      font-size: 14px;
+    }
+
+    select.input-error {
+      border-color: #dc2626 !important;
+      background: #fff5f5 !important;
+    }
   </style>
 </head>
 
@@ -153,18 +213,17 @@
   <div class="logo">⚽ <span>Admin</span></div>
 
   <p class="subtitle">
-    Saisis les scores réels, rattrape les pronostics oubliés, gère le challenge Champion et supprime les utilisateurs de test.
+    Saisis les scores réels, rattrape les pronostics oubliés, gère les challenges et supprime les utilisateurs de test.
   </p>
 
   <div class="admin-help">
-    Cette page permet à l’admin de saisir un pronostic pour un participant, même si le match a déjà commencé ou est terminé.
-    Elle permet aussi de supprimer un participant de test avec tous ses pronostics.
-    <br><br>
     Le classement additionne maintenant :
     <br>
     1. les points des matchs ;
     <br>
-    2. les points du challenge Champion du Monde, lorsque le vrai champion est renseigné.
+    2. les points du challenge Champion du Monde ;
+    <br>
+    3. les points du challenge Classement des groupes.
     <br><br>
     Les probabilités des matchs restent visibles ici côté admin pour contrôle, mais elles ne sont pas affichées aux participants.
   </div>
@@ -173,7 +232,7 @@
     <h3>Connexion admin</h3>
 
     <p class="muted">
-      Entre le code admin pour accéder à la saisie des scores, aux pronostics oubliés, au challenge Champion et à la suppression des participants.
+      Entre le code admin pour accéder à la saisie des scores, aux pronostics oubliés et aux challenges.
     </p>
 
     <div class="admin-row">
@@ -195,7 +254,7 @@
 
       <p class="muted">
         Choisis un participant existant. Tu peux ensuite lui ajouter un pronostic oublié ou le supprimer du groupe.
-        La suppression efface aussi tous ses pronostics matchs et son choix Champion.
+        La suppression efface aussi tous ses pronostics matchs, son choix Champion et ses classements de groupes.
       </p>
 
       <div class="admin-row">
@@ -235,6 +294,32 @@
       <div id="winner-admin-scale" class="scale-box">
         Barème Champion : 20 à 80 pts selon la difficulté du choix.
       </div>
+    </div>
+
+    <div class="admin-section-title">Challenge Classement des groupes</div>
+
+    <div class="admin-card">
+      <h3>Saisir le vrai classement final des groupes</h3>
+
+      <p class="muted">
+        Pour chaque groupe, classe les 4 équipes dans l’ordre réel final.
+        Chaque position exacte rapporte 4 pts aux participants.
+        Maximum : 16 pts par groupe, soit 192 pts au total.
+      </p>
+
+      <div id="group-standings-current-result" class="scale-box">
+        Aucun classement réel des groupes renseigné pour le moment.
+      </div>
+
+      <div id="admin-group-standings-list" class="admin-groups-grid">
+        <!-- Généré par JavaScript -->
+      </div>
+
+      <button id="btn-save-real-groups" class="btn btn-primary" style="margin-top:16px;">
+        Enregistrer les classements réels des groupes
+      </button>
+
+      <p id="admin-groups-error" class="error-msg"></p>
     </div>
 
     <div class="admin-section-title">Rattrapage d’un pronostic oublié</div>
@@ -299,10 +384,18 @@
       calculatePredictionPoints,
       formatPointsScale,
       getMatchPointsScale,
+
       getWinnerChallengeTeams,
       getWinnerChallengePoints,
       calculateWinnerChallengePoints,
-      formatWinnerChallengeDeadline
+      formatWinnerChallengeDeadline,
+
+      getGroupLetters,
+      getTeamsByGroup,
+      isValidGroupStanding,
+      calculateAllGroupStandingsPoints,
+      getGroupStandingMaxTotalPoints,
+      getGroupStandingMaxPointsPerGroup
     } from "./probabilities.js";
 
     const $ = (selector) => document.querySelector(selector);
@@ -312,6 +405,7 @@
     let members = [];
     let resultsByMatch = {};
     let winnerChallengeResult = null;
+    let groupStandingsResult = null;
 
     function showToast(message, type = "") {
       const toast = $("#toast");
@@ -443,6 +537,18 @@
       }
     }
 
+    async function loadGroupStandingsResult() {
+      groupStandingsResult = null;
+
+      const resultSnap = await getDoc(
+        doc(db, "groups", groupCode, "challengeResults", "groupStandings")
+      );
+
+      if (resultSnap.exists()) {
+        groupStandingsResult = resultSnap.data();
+      }
+    }
+
     function getMatchById(matchId) {
       return MATCHES.find((match) => match.id === matchId) || null;
     }
@@ -550,6 +656,209 @@
       } finally {
         button.disabled = false;
         button.textContent = "Enregistrer le champion réel";
+      }
+    }
+
+    function renderAdminGroupStandingCard(groupLetter) {
+      const teams = getTeamsByGroup(groupLetter);
+      const existingStanding =
+        groupStandingsResult &&
+        groupStandingsResult.groups &&
+        groupStandingsResult.groups[groupLetter]
+          ? groupStandingsResult.groups[groupLetter]
+          : [];
+
+      let rowsHtml = "";
+
+      for (let rank = 1; rank <= teams.length; rank++) {
+        const selectedTeam = existingStanding[rank - 1] || "";
+
+        let optionsHtml = `<option value="">Choisir</option>`;
+
+        teams.forEach((team) => {
+          const selected = selectedTeam === team ? "selected" : "";
+
+          optionsHtml += `
+            <option value="${team}" ${selected}>${team}</option>
+          `;
+        });
+
+        rowsHtml += `
+          <div class="admin-group-row">
+            <span class="admin-group-rank">${rank}</span>
+            <select
+              class="admin-group-select"
+              data-group="${groupLetter}"
+              data-rank="${rank}"
+            >
+              ${optionsHtml}
+            </select>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="admin-group-card">
+          <h4>Groupe ${groupLetter}</h4>
+
+          <div class="admin-group-teams">
+            ${teams.join(" · ")}
+          </div>
+
+          ${rowsHtml}
+        </div>
+      `;
+    }
+
+    function renderAdminGroupStandings() {
+      const container = $("#admin-group-standings-list");
+      const currentBox = $("#group-standings-current-result");
+
+      if (!container) return;
+
+      let html = "";
+
+      getGroupLetters().forEach((groupLetter) => {
+        html += renderAdminGroupStandingCard(groupLetter);
+      });
+
+      container.innerHTML = html;
+
+      document.querySelectorAll(".admin-group-select").forEach((select) => {
+        select.addEventListener("change", () => {
+          validateAdminGroupDuplicates(select.dataset.group);
+        });
+      });
+
+      if (groupStandingsResult && groupStandingsResult.groups) {
+        currentBox.innerHTML = `
+          Les classements réels des groupes sont déjà enregistrés.
+          <br>
+          Ils sont actuellement intégrés au classement général.
+          <br>
+          Barème : <strong>4 pts</strong> par position exacte,
+          maximum <strong>${getGroupStandingMaxTotalPoints()} pts</strong>.
+        `;
+      } else {
+        currentBox.innerHTML = `
+          Aucun classement réel des groupes renseigné pour le moment.
+          <br>
+          Les points du challenge Groupes ne sont donc pas encore intégrés au classement.
+        `;
+      }
+    }
+
+    function validateAdminGroupDuplicates(groupLetter) {
+      const selects = document.querySelectorAll(
+        `.admin-group-select[data-group="${groupLetter}"]`
+      );
+
+      const selectedValues = [];
+
+      selects.forEach((select) => {
+        select.classList.remove("input-error");
+
+        if (select.value) {
+          selectedValues.push(select.value);
+        }
+      });
+
+      selects.forEach((select) => {
+        if (
+          select.value &&
+          selectedValues.filter((value) => value === select.value).length > 1
+        ) {
+          select.classList.add("input-error");
+        }
+      });
+    }
+
+    function getSelectedRealGroupStanding(groupLetter) {
+      const teams = [];
+
+      for (let rank = 1; rank <= 4; rank++) {
+        const select = document.querySelector(
+          `.admin-group-select[data-group="${groupLetter}"][data-rank="${rank}"]`
+        );
+
+        if (!select || !select.value) {
+          return null;
+        }
+
+        teams.push(select.value);
+      }
+
+      return teams;
+    }
+
+    function getAllSelectedRealGroupStandings() {
+      const result = {};
+
+      for (const groupLetter of getGroupLetters()) {
+        const standing = getSelectedRealGroupStanding(groupLetter);
+
+        if (!standing) {
+          throw new Error(`Classement incomplet pour le groupe ${groupLetter}`);
+        }
+
+        if (!isValidGroupStanding(groupLetter, standing)) {
+          throw new Error(`Classement invalide pour le groupe ${groupLetter}`);
+        }
+
+        result[groupLetter] = standing;
+      }
+
+      return result;
+    }
+
+    async function saveRealGroupStandings() {
+      const errorBox = $("#admin-groups-error");
+      const button = $("#btn-save-real-groups");
+
+      errorBox.textContent = "";
+
+      let groupsData = null;
+
+      try {
+        groupsData = getAllSelectedRealGroupStandings();
+      } catch (error) {
+        errorBox.textContent = error.message || "Vérifie les classements saisis.";
+        return;
+      }
+
+      const confirmed = confirm(
+        `Confirmer l’enregistrement des vrais classements de groupes ?\n\nLe classement général sera recalculé avec le challenge Groupes.`
+      );
+
+      if (!confirmed) return;
+
+      button.disabled = true;
+      button.textContent = "Enregistrement...";
+
+      try {
+        await setDoc(
+          doc(db, "groups", groupCode, "challengeResults", "groupStandings"),
+          {
+            groups: groupsData,
+            pointsPerExactPosition: 4,
+            maxPointsPerGroup: getGroupStandingMaxPointsPerGroup(),
+            maxTotalPoints: getGroupStandingMaxTotalPoints(),
+            updatedAt: Date.now(),
+            updatedBy: "admin"
+          }
+        );
+
+        await loadGroupStandingsResult();
+        await recalculateAndUpdateRanking();
+        await refreshAdminScreen();
+
+        showToast("Classements réels enregistrés et classement recalculé", "success");
+      } catch (error) {
+        console.error(error);
+        showToast("Erreur lors de l’enregistrement des classements", "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Enregistrer les classements réels des groupes";
       }
     }
 
@@ -723,6 +1032,7 @@
     async function recalculateAndUpdateRanking() {
       await loadResults();
       await loadWinnerChallengeResult();
+      await loadGroupStandingsResult();
 
       const predictionsSnapshot = await getDocs(
         collection(db, "groups", groupCode, "predictions")
@@ -788,6 +1098,29 @@
         });
       }
 
+      if (groupStandingsResult && groupStandingsResult.groups) {
+        const groupPredictionsSnapshot = await getDocs(
+          collection(db, "groups", groupCode, "groupPredictions")
+        );
+
+        groupPredictionsSnapshot.forEach((docSnap) => {
+          const prediction = docSnap.data();
+
+          if (!prediction.groups) return;
+
+          const calculation = calculateAllGroupStandingsPoints(
+            prediction.groups,
+            groupStandingsResult.groups
+          );
+
+          if (!pointsByPseudo[prediction.pseudo]) {
+            pointsByPseudo[prediction.pseudo] = 0;
+          }
+
+          pointsByPseudo[prediction.pseudo] += calculation.points;
+        });
+      }
+
       for (const memberDoc of membersSnapshot.docs) {
         const member = memberDoc.data();
         const newPoints = pointsByPseudo[member.pseudo] || 0;
@@ -802,9 +1135,11 @@
       await loadMembers();
       await loadResults();
       await loadWinnerChallengeResult();
+      await loadGroupStandingsResult();
 
       renderMemberSelect();
       renderWinnerAdminChallenge();
+      renderAdminGroupStandings();
       renderMatchSelect();
       await renderAdminResults();
     }
@@ -913,7 +1248,7 @@
       }
 
       const confirmed = confirm(
-        `Confirmer la suppression de "${pseudo}" ?\n\nTous ses pronostics matchs et son choix Champion seront aussi supprimés. Cette action est irréversible.`
+        `Confirmer la suppression de "${pseudo}" ?\n\nTous ses pronostics matchs, son choix Champion et ses classements de groupes seront aussi supprimés. Cette action est irréversible.`
       );
 
       if (!confirmed) return;
@@ -941,6 +1276,10 @@
 
         deletePromises.push(
           deleteDoc(doc(db, "groups", groupCode, "winnerPredictions", pseudo))
+        );
+
+        deletePromises.push(
+          deleteDoc(doc(db, "groups", groupCode, "groupPredictions", pseudo))
         );
 
         await Promise.all(deletePromises);
@@ -990,6 +1329,8 @@
     $("#btn-delete-member").addEventListener("click", deleteMemberAndPredictions);
 
     $("#btn-save-real-winner").addEventListener("click", saveRealWinner);
+
+    $("#btn-save-real-groups").addEventListener("click", saveRealGroupStandings);
 
     $("#btn-load-group").addEventListener("click", async () => {
       groupCode = $("#input-admin-code").value.trim().toUpperCase();
