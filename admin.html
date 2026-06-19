@@ -112,6 +112,11 @@
       color: #1e40af;
     }
 
+    .badge-scale {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
     .hidden {
       display: none !important;
     }
@@ -124,6 +129,17 @@
 
     .btn-danger:hover {
       background: #b91c1c !important;
+    }
+
+    .scale-box {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-top: 10px;
+      color: #475569;
+      font-size: 13px;
+      line-height: 1.5;
     }
   </style>
 </head>
@@ -139,6 +155,11 @@
     Cette page permet à l’admin de saisir un pronostic pour un participant, même si le match a déjà commencé ou est terminé.
     Elle permet aussi de supprimer un participant de test avec tous ses pronostics.
     Les utilisateurs restent bloqués après le début du match sur la page normale.
+    <br><br>
+    Le classement utilise le nouveau barème dynamique :
+    bon résultat = 2 à 10 points selon la probabilité du résultat pronostiqué ;
+    score exact = bonus +3 points ;
+    mauvais résultat = 0 point.
   </div>
 
   <div id="admin-login-card" class="admin-card">
@@ -193,6 +214,10 @@
         <select id="select-match"></select>
       </div>
 
+      <div id="admin-match-scale" class="scale-box">
+        Barème du match sélectionné.
+      </div>
+
       <div class="admin-row">
         <select id="select-prediction-type">
           <option value="result">Résultat 1/N/2</option>
@@ -231,6 +256,12 @@
       deleteDoc,
       collection
     } from "./firebase.js";
+
+    import {
+      calculatePredictionPoints,
+      formatPointsScale,
+      getMatchPointsScale
+    } from "./probabilities.js";
 
     const $ = (selector) => document.querySelector(selector);
 
@@ -326,47 +357,8 @@
       return new Date() >= new Date(match.date);
     }
 
-    function getMatchResult(homeScore, awayScore) {
-      if (homeScore > awayScore) return "1";
-      if (homeScore < awayScore) return "2";
-      return "N";
-    }
-
-    function calculatePoints(prediction, realHome, realAway) {
-      if (
-        realHome === null ||
-        realAway === null ||
-        realHome === undefined ||
-        realAway === undefined
-      ) {
-        return null;
-      }
-
-      const realResult = getMatchResult(realHome, realAway);
-
-      if (prediction.type === "score") {
-        if (prediction.home === realHome && prediction.away === realAway) {
-          return { points: 5, label: "Score exact" };
-        }
-
-        const predictedResult = getMatchResult(prediction.home, prediction.away);
-
-        if (predictedResult === realResult) {
-          return { points: 3, label: "Bon résultat" };
-        }
-
-        return { points: 0, label: "Raté" };
-      }
-
-      if (prediction.type === "result") {
-        if (prediction.result === realResult) {
-          return { points: 3, label: "Bon résultat" };
-        }
-
-        return { points: 0, label: "Raté" };
-      }
-
-      return null;
+    function calculatePoints(prediction, realHome, realAway, match) {
+      return calculatePredictionPoints(prediction, realHome, realAway, match);
     }
 
     async function loadMembers() {
@@ -395,6 +387,10 @@
       });
     }
 
+    function getMatchById(matchId) {
+      return MATCHES.find((match) => match.id === matchId) || null;
+    }
+
     function renderMemberSelect() {
       const select = $("#select-member");
 
@@ -407,6 +403,39 @@
           <option value="${member.pseudo}">${member.pseudo}</option>
         `;
       });
+    }
+
+    function renderSelectedMatchScale() {
+      const matchId = $("#select-match").value;
+      const match = getMatchById(matchId);
+      const box = $("#admin-match-scale");
+
+      if (!match) {
+        box.textContent = "Sélectionne un match pour afficher le barème.";
+        return;
+      }
+
+      const scale = getMatchPointsScale(match);
+
+      box.innerHTML = `
+        <strong>${match.home} vs ${match.away}</strong><br>
+        ${formatPointsScale(match)} • Score exact : +3 pts
+        <br>
+        <span class="muted">
+          Détail :
+          ${match.home} = ${scale["1"].points} pts (${scale["1"].probability} %),
+          Nul = ${scale["N"].points} pts (${scale["N"].probability} %),
+          ${match.away} = ${scale["2"].points} pts (${scale["2"].probability} %).
+        </span>
+      `;
+
+      const resultSelect = $("#select-result");
+
+      resultSelect.innerHTML = `
+        <option value="1">Victoire ${match.home} — ${scale["1"].points} pts</option>
+        <option value="N">Match nul — ${scale["N"].points} pts</option>
+        <option value="2">Victoire ${match.away} — ${scale["2"].points} pts</option>
+      `;
     }
 
     function renderMatchSelect() {
@@ -428,6 +457,8 @@
           </option>
         `;
       });
+
+      renderSelectedMatchScale();
     }
 
     async function renderAdminResults() {
@@ -437,6 +468,7 @@
       for (const match of MATCHES) {
         const existingResult = resultsByMatch[match.id] || null;
         const started = isMatchStarted(match);
+        const scaleText = formatPointsScale(match);
 
         const card = document.createElement("div");
         card.className = "admin-card";
@@ -454,6 +486,11 @@
                 ? `<span class="badge badge-scored">Score enregistré : ${existingResult.home} - ${existingResult.away}</span>`
                 : ""
             }
+          </div>
+
+          <div class="muted" style="margin-top:8px;">
+            <span class="badge badge-scale">Barème</span>
+            ${scaleText} • Score exact : +3 pts
           </div>
 
           <div class="admin-row">
@@ -529,10 +566,15 @@
 
         if (!result) return;
 
+        const match = getMatchById(prediction.matchId);
+
+        if (!match) return;
+
         const calculation = calculatePoints(
           prediction,
           result.home,
-          result.away
+          result.away,
+          match
         );
 
         if (calculation === null) return;
@@ -732,6 +774,8 @@
       $("#input-pred-home").classList.toggle("hidden", !isScorePrediction);
       $("#input-pred-away").classList.toggle("hidden", !isScorePrediction);
     });
+
+    $("#select-match").addEventListener("change", renderSelectedMatchScale);
 
     $("#btn-save-admin-prediction").addEventListener("click", saveAdminPrediction);
 
