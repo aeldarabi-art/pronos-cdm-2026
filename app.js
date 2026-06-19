@@ -331,6 +331,8 @@ function renderWinnerChallenge() {
 
   if (!select || !form) return;
 
+  const selectedBeforeRender = select.value;
+
   if (deadlineLabel) {
     deadlineLabel.textContent = formatWinnerChallengeDeadline();
   }
@@ -342,11 +344,15 @@ function renderWinnerChallenge() {
   const isOpen = isWinnerChallengeOpen();
   const teams = getWinnerChallengeTeams();
 
+  const selectedTeamForRender =
+    selectedBeforeRender ||
+    (winnerPrediction && winnerPrediction.team) ||
+    "";
+
   select.innerHTML = `<option value="">Choisir une équipe</option>`;
 
   teams.forEach((item) => {
-    const selected =
-      winnerPrediction && winnerPrediction.team === item.team ? "selected" : "";
+    const selected = selectedTeamForRender === item.team ? "selected" : "";
 
     select.innerHTML += `
       <option value="${item.team}" ${selected}>
@@ -752,8 +758,6 @@ async function recalculateAndUpdateRanking() {
 
   const pointsByPseudo = {};
 
-  /* ---------- Points des matchs ---------- */
-
   const predsRef = collection(db, "groups", currentGroup.code, "predictions");
   const predsSnap = await getDocs(predsRef);
 
@@ -777,8 +781,6 @@ async function recalculateAndUpdateRanking() {
 
     pointsByPseudo[pred.pseudo] += calc.points;
   });
-
-  /* ---------- Points du challenge Champion ---------- */
 
   await loadWinnerChallengeResult();
 
@@ -810,8 +812,6 @@ async function recalculateAndUpdateRanking() {
     });
   }
 
-  /* ---------- Points du challenge Classement des groupes ---------- */
-
   await loadGroupStandingsResult();
 
   if (groupStandingsResult && groupStandingsResult.groups) {
@@ -841,8 +841,6 @@ async function recalculateAndUpdateRanking() {
       pointsByPseudo[prediction.pseudo] += calc.points;
     });
   }
-
-  /* ---------- Mise à jour des membres ---------- */
 
   const membersRef = collection(db, "groups", currentGroup.code, "members");
   const membersSnap = await getDocs(membersRef);
