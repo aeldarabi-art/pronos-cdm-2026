@@ -98,16 +98,54 @@
     <div id="tab-rules" class="tab-content">
       <div class="rules-card">
         <h2>Barème de points</h2>
+
         <ul class="rules-list">
-          <li><span class="points-tag gold">5 pts</span> Score exact (ex: 2-1 et tu pronostiques 2-1)</li>
-          <li><span class="points-tag silver">3 pts</span> Bon résultat (1 / N / 2) sans le score exact</li>
-          <li><span class="points-tag bronze">0 pt</span> Mauvais pronostic</li>
+          <li>
+            <span class="points-tag gold">2 à 10 pts</span>
+            Bon résultat trouvé : victoire équipe 1, nul ou victoire équipe 2.
+          </li>
+          <li>
+            <span class="points-tag silver">+3 pts</span>
+            Bonus score exact, uniquement si le score pronostiqué est parfaitement correct.
+          </li>
+          <li>
+            <span class="points-tag bronze">0 pt</span>
+            Mauvais résultat pronostiqué.
+          </li>
         </ul>
-        <h2>Règles</h2>
+
+        <h2>Comment sont calculés les points ?</h2>
+
         <ul class="rules-list">
-          <li>Tu peux pronostiquer un score exact OU juste un résultat (1/N/2)</li>
-          <li>Impossible de modifier ton pronostic une fois le match commencé</li>
-          <li>Le classement se met à jour automatiquement dès que les résultats sont saisis</li>
+          <li>Chaque équipe possède une note de force interne.</li>
+          <li>Cette note sert à calculer la probabilité de chaque résultat : victoire équipe 1, nul, victoire équipe 2.</li>
+          <li>Plus un résultat est improbable, plus il rapporte de points.</li>
+          <li>Un résultat très probable peut rapporter seulement 2 ou 3 points.</li>
+          <li>Une surprise peut rapporter jusqu’à 10 points.</li>
+          <li>Le nul est différencié selon le match : un nul entre deux équipes proches ne rapporte pas autant qu’un nul d’un outsider contre un favori.</li>
+        </ul>
+
+        <h2>Exemples</h2>
+
+        <ul class="rules-list">
+          <li>
+            Favori très fort contre outsider : victoire du favori = peu de points ; nul ou victoire outsider = beaucoup de points.
+          </li>
+          <li>
+            Match équilibré : les points sont plus proches entre victoire équipe 1, nul et victoire équipe 2.
+          </li>
+          <li>
+            Si tu pronostiques le score exact, tu gagnes les points du bon résultat + 3 points de bonus.
+          </li>
+        </ul>
+
+        <h2>Règles générales</h2>
+
+        <ul class="rules-list">
+          <li>Tu peux pronostiquer un score exact OU juste un résultat 1 / N / 2.</li>
+          <li>Impossible de modifier ton pronostic une fois le match commencé.</li>
+          <li>Le classement se met à jour automatiquement dès que les résultats sont saisis.</li>
+          <li>La base de force des équipes pourra être actualisée après chaque grande phase de la compétition.</li>
         </ul>
       </div>
     </div>
