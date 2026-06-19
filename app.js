@@ -12,6 +12,12 @@ import {
   onSnapshot
 } from "./firebase.js";
 
+import {
+  calculatePredictionPoints,
+  formatPointsScale,
+  getMatchPointsScale
+} from "./probabilities.js";
+
 /* ============================================================
    ETAT GLOBAL
    ============================================================ */
@@ -70,58 +76,22 @@ function formatDate(dateStr) {
   return d.toLocaleString("fr-FR", options) + " (Maroc)";
 }
 
+/* ============================================================
+   SECURITE PRONOSTIC
+   ============================================================ */
 function isMatchStarted(match) {
   return new Date() >= new Date(match.date);
 }
 
-function getMatchResult(homeScore, awayScore) {
-  if (homeScore > awayScore) return "1";
-  if (homeScore < awayScore) return "2";
-  return "N";
-}
-
 /* ============================================================
    CALCUL DES POINTS
-   Barème :
-   - Score exact = 5 pts
-   - Bon résultat (1/N/2) = 3 pts
-   - Faux = 0 pt
+   Nouveau barème :
+   - Bon résultat = 2 à 10 pts selon la probabilité
+   - Score exact = bonus +3 pts
+   - Mauvais résultat = 0 pt
    ============================================================ */
-function calculatePoints(prediction, realHome, realAway) {
-  if (
-    realHome === null ||
-    realAway === null ||
-    realHome === undefined ||
-    realAway === undefined
-  ) {
-    return null;
-  }
-
-  const realResult = getMatchResult(realHome, realAway);
-
-  if (prediction.type === "score") {
-    if (prediction.home === realHome && prediction.away === realAway) {
-      return { points: 5, label: "Score exact" };
-    }
-
-    const predResult = getMatchResult(prediction.home, prediction.away);
-
-    if (predResult === realResult) {
-      return { points: 3, label: "Bon résultat" };
-    }
-
-    return { points: 0, label: "Raté" };
-  }
-
-  if (prediction.type === "result") {
-    if (prediction.result === realResult) {
-      return { points: 3, label: "Bon résultat" };
-    }
-
-    return { points: 0, label: "Raté" };
-  }
-
-  return null;
+function calculatePoints(prediction, realHome, realAway, match) {
+  return calculatePredictionPoints(prediction, realHome, realAway, match);
 }
 
 function formatPredictionText(prediction, match) {
@@ -287,7 +257,11 @@ async function recalculateAndUpdateRanking() {
 
     if (!result) return;
 
-    const calc = calculatePoints(pred, result.home, result.away);
+    const match = MATCHES.find((m) => m.id === pred.matchId);
+
+    if (!match) return;
+
+    const calc = calculatePoints(pred, result.home, result.away, match);
 
     if (calc === null) return;
 
@@ -386,17 +360,33 @@ function renderMatches() {
         const predText = formatPredictionText(myPred, match);
         bottomInfo += `<span class="match-prediction-tag">✓ ${predText}</span>`;
 
-        const calc = calculatePoints(myPred, result.home, result.away);
+        const calc = calculatePoints(myPred, result.home, result.away, match);
 
         if (calc) {
           const cls =
-            calc.points === 5
-              ? "win-exact"
-              : calc.points === 3
-                ? "win-result"
-                : "win-zero";
+            calc.points === 0
+              ? "win-zero"
+              : calc.exactBonus > 0
+                ? "win-exact"
+                : "win-result";
 
-          bottomInfo += `<span class="match-points-tag ${cls}">+${calc.points} pts — ${calc.label}</span>`;
+          let detail = "";
+
+          if (calc.points > 0) {
+            detail = ` — ${calc.label} : ${calc.basePoints} pts`;
+
+            if (calc.exactBonus > 0) {
+              detail += ` + ${calc.exactBonus} bonus`;
+            }
+
+            if (calc.probability !== null && calc.probability !== undefined) {
+              detail += ` — proba ${calc.probability}%`;
+            }
+          } else {
+            detail = ` — ${calc.label}`;
+          }
+
+          bottomInfo += `<span class="match-points-tag ${cls}">+${calc.points} pts${detail}</span>`;
         }
       } else {
         bottomInfo += `<span class="match-prediction-tag" style="color:#9ca3af;">Aucun pronostic saisi</span>`;
@@ -494,11 +484,27 @@ function openPredictionModal(match) {
   selectedMode = "result";
   selectedResult = null;
 
-  $("#modal-title").textContent = "Faire un pronostic";
-  $("#modal-match-info").textContent = `${match.home} vs ${match.away} — ${formatDate(match.date)}`;
+  const scale = getMatchPointsScale(match);
 
-  $("#opt-home-label").textContent = `1 (${match.home})`;
-  $("#opt-away-label").textContent = `2 (${match.away})`;
+  $("#modal-title").textContent = "Faire un pronostic";
+
+  $("#modal-match-info").innerHTML = `
+    ${match.home} vs ${match.away} — ${formatDate(match.date)}
+    <br>
+    <span style="font-size:12px;color:#64748b;">
+      Barème : ${formatPointsScale(match)} • Score exact : +3 pts
+    </span>
+  `;
+
+  $("#opt-home-label").textContent = `1 (${match.home}) — ${scale["1"].points} pts`;
+  $("#opt-away-label").textContent = `2 (${match.away}) — ${scale["2"].points} pts`;
+
+  const optDrawLabel = document.querySelector("#mode-result .result-opt[data-val='N'] span:last-child");
+
+  if (optDrawLabel) {
+    optDrawLabel.textContent = `Nul — ${scale["N"].points} pts`;
+  }
+
   $("#score-home-label").textContent = match.home;
   $("#score-away-label").textContent = match.away;
 
