@@ -1,9 +1,14 @@
 // probabilities.js
 // Base interne de calcul des probabilités et des points
 // Note équipe : échelle interne élargie de 1050 à 1950
-// Barème joueur :
+// Barème matchs :
 // - Avant le 20 juin 2026 : ancien barème 5 / 3 / 0
 // - À partir du 20 juin 2026 : bon résultat 2 à 10 pts + bonus score exact +3 pts
+//
+// Challenge Champion du Monde :
+// - Choix verrouillé le 23 juin 2026 à 23h59 heure Maroc
+// - Barème de 20 à 50 pts selon la difficulté du choix
+//
 // Les probabilités restent internes et ne doivent pas être affichées aux utilisateurs.
 
 /* ============================================================
@@ -68,7 +73,7 @@ export const TEAM_RATINGS = {
 const DEFAULT_RATING = 1500;
 
 /* ============================================================
-   2. DATE DE BASCULE DU NOUVEAU BARÈME
+   2. DATE DE BASCULE DU NOUVEAU BARÈME DES MATCHS
    ============================================================ */
 
 // Matchs avant le 20 juin 2026 : ancien barème.
@@ -84,7 +89,125 @@ function isNewScoringApplicable(match) {
 }
 
 /* ============================================================
-   3. UTILITAIRES
+   3. CHALLENGE CHAMPION DU MONDE
+   ============================================================ */
+
+// Deadline : 23 juin 2026 à 23h59, heure Maroc.
+export const WINNER_CHALLENGE_DEADLINE = "2026-06-23T23:59:59+01:00";
+
+export const WINNER_CHALLENGE_POINTS = {
+  // Très grands favoris — 20 pts
+  "Argentine": 20,
+  "France": 20,
+  "Espagne": 20,
+
+  // Favoris — 25 pts
+  "Angleterre": 25,
+  "Brésil": 25,
+  "Portugal": 25,
+  "Allemagne": 25,
+
+  // Outsiders sérieux — 30 pts
+  "Pays-Bas": 30,
+  "Belgique": 30,
+  "Uruguay": 30,
+  "Colombie": 30,
+  "Croatie": 30,
+
+  // Outsiders forts — 35 pts
+  "Maroc": 35,
+  "Mexique": 35,
+  "Sénégal": 35,
+  "États-Unis": 35,
+  "Japon": 35,
+  "Suisse": 35,
+  "Suède": 35,
+
+  // Surprises crédibles — 40 pts
+  "Côte d'Ivoire": 40,
+  "Iran": 40,
+  "Turquie": 40,
+  "Équateur": 40,
+  "Autriche": 40,
+  "Corée du Sud": 40,
+  "Norvège": 40,
+  "Australie": 40,
+  "Algérie": 40,
+  "Égypte": 40,
+  "Canada": 40,
+  "Ghana": 40,
+  "Écosse": 40,
+
+  // Grosses surprises — 45 pts
+  "Paraguay": 45,
+  "Tchéquie": 45,
+  "Bosnie-Herzégovine": 45,
+  "Cap-Vert": 45,
+  "Arabie Saoudite": 45,
+  "RD Congo": 45,
+  "Tunisie": 45,
+  "Ouzbékistan": 45,
+
+  // Énormes exploits — 50 pts
+  "Nouvelle-Zélande": 50,
+  "Afrique du Sud": 50,
+  "Panama": 50,
+  "Qatar": 50,
+  "Irak": 50,
+  "Jordanie": 50,
+  "Curaçao": 50,
+  "Haïti": 50
+};
+
+export function isWinnerChallengeOpen() {
+  return new Date() <= new Date(WINNER_CHALLENGE_DEADLINE);
+}
+
+export function getWinnerChallengePoints(teamName) {
+  return WINNER_CHALLENGE_POINTS[teamName] || 50;
+}
+
+export function getWinnerChallengeTeams() {
+  return Object.entries(WINNER_CHALLENGE_POINTS)
+    .map(([team, points]) => ({
+      team,
+      points,
+      rating: getTeamRating(team)
+    }))
+    .sort((a, b) => {
+      if (a.points !== b.points) return a.points - b.points;
+      return b.rating - a.rating;
+    });
+}
+
+export function calculateWinnerChallengePoints(predictedTeam, realChampionTeam) {
+  if (!predictedTeam || !realChampionTeam) {
+    return null;
+  }
+
+  if (predictedTeam !== realChampionTeam) {
+    return {
+      points: 0,
+      label: "Champion incorrect",
+      expectedPoints: getWinnerChallengePoints(predictedTeam)
+    };
+  }
+
+  const points = getWinnerChallengePoints(predictedTeam);
+
+  return {
+    points,
+    label: "Champion trouvé",
+    expectedPoints: points
+  };
+}
+
+export function formatWinnerChallengeDeadline() {
+  return "23 juin 2026 à 23h59";
+}
+
+/* ============================================================
+   4. UTILITAIRES
    ============================================================ */
 
 export function getTeamRating(teamName) {
@@ -105,7 +228,7 @@ function roundPercent(value) {
 }
 
 /* ============================================================
-   4. PROBABILITÉ DU NUL
+   5. PROBABILITÉ DU NUL
    ============================================================ */
 
 function getDrawProbabilityFromRatingDiff(diff) {
@@ -121,7 +244,7 @@ function getDrawProbabilityFromRatingDiff(diff) {
 }
 
 /* ============================================================
-   5. CALCUL DES PROBABILITÉS INTERNES 1 / N / 2
+   6. CALCUL DES PROBABILITÉS INTERNES 1 / N / 2
 
    Ces probabilités servent uniquement au moteur de calcul.
    Elles ne doivent pas être affichées aux utilisateurs.
@@ -161,7 +284,7 @@ export function getMatchProbabilities(match) {
 }
 
 /* ============================================================
-   6. ANCIEN BARÈME — MATCHS AVANT LE 20 JUIN 2026
+   7. ANCIEN BARÈME — MATCHS AVANT LE 20 JUIN 2026
 
    Score exact = 5 pts
    Bon résultat = 3 pts
@@ -246,7 +369,7 @@ function calculateLegacyPredictionPoints(prediction, realHome, realAway) {
 }
 
 /* ============================================================
-   7. NOUVEAU BARÈME DES POINTS ENTRE 2 ET 10
+   8. NOUVEAU BARÈME DES POINTS ENTRE 2 ET 10
 
    Plus le résultat pronostiqué est improbable,
    plus il rapporte de points.
@@ -268,7 +391,7 @@ export function getResultPointsFromProbability(probability) {
 }
 
 /* ============================================================
-   8. CALCUL DES POINTS D'UN PRONOSTIC
+   9. CALCUL DES POINTS D'UN PRONOSTIC MATCH
 
    Avant le 20 juin :
    - ancien barème 5 / 3 / 0
@@ -345,7 +468,7 @@ export function calculatePredictionPoints(prediction, realHome, realAway, match)
 }
 
 /* ============================================================
-   9. BARÈME VISIBLE D'UN MATCH
+   10. BARÈME VISIBLE D'UN MATCH
 
    Attention :
    - Les points sont visibles.
@@ -407,7 +530,7 @@ export function getMatchPointsScale(match) {
 }
 
 /* ============================================================
-   10. TEXTE COURT POUR L'INTERFACE
+   11. TEXTE COURT POUR L'INTERFACE PUBLIQUE
 
    Ici, on n'affiche volontairement PAS les probabilités.
    ============================================================ */
@@ -423,11 +546,10 @@ export function formatPointsScale(match) {
 }
 
 /* ============================================================
-   11. DÉTAILS INTERNES
+   12. DÉTAILS INTERNES MATCHS
 
-   Fonction utile pour debug/admin futur.
-   Ne pas utiliser pour affichage utilisateur public
-   si on veut cacher les probabilités.
+   Fonction utile pour debug/admin.
+   Ne pas utiliser pour affichage public si on veut cacher les probabilités.
    ============================================================ */
 
 export function getMatchProbabilityDetails(match) {
