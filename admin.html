@@ -266,6 +266,54 @@
       </div>
     </div>
 
+    <div class="admin-section-title">Rattrapage Champion et Classement des groupes</div>
+
+    <div class="admin-card">
+      <h3>Ajouter ou modifier le champion d’un participant</h3>
+
+      <p class="muted">
+        Choisis un participant existant ou saisis un nouveau pseudo dans le bloc “Participants du groupe”,
+        puis sélectionne son choix Champion. Cette action fonctionne même après la deadline participant.
+      </p>
+
+      <div id="admin-winner-prediction-current" class="scale-box">
+        Choisis un participant pour voir son choix Champion actuel.
+      </div>
+
+      <div class="admin-row">
+        <select id="select-admin-winner-prediction">
+          <option value="">Choisir le champion du participant</option>
+        </select>
+
+        <button id="btn-save-admin-winner-prediction" class="btn btn-primary">
+          Enregistrer le champion du participant
+        </button>
+      </div>
+    </div>
+
+    <div class="admin-card">
+      <h3>Ajouter ou modifier les classements de groupes d’un participant</h3>
+
+      <p class="muted">
+        Saisis le classement des 12 groupes pour le participant sélectionné.
+        Chaque groupe doit contenir les 4 équipes sans doublon.
+      </p>
+
+      <div id="admin-participant-groups-current" class="scale-box">
+        Choisis un participant pour voir ses classements de groupes actuels.
+      </div>
+
+      <div id="admin-participant-group-standings-list" class="admin-groups-grid">
+        <!-- Généré par JavaScript -->
+      </div>
+
+      <button id="btn-save-admin-group-prediction" class="btn btn-primary" style="margin-top:16px;">
+        Enregistrer les classements du participant
+      </button>
+
+      <p id="admin-participant-groups-error" class="error-msg"></p>
+    </div>
+
     <div class="admin-section-title">Challenge Champion du Monde</div>
 
     <div class="admin-card">
@@ -557,16 +605,377 @@
 
     function renderMemberSelect() {
       const select = $("#select-member");
+      const selectedBeforeRender = select.value;
 
       select.innerHTML = `
         <option value="">Choisir un participant existant</option>
       `;
 
       members.forEach((member) => {
+        const selected = member.pseudo === selectedBeforeRender ? "selected" : "";
+
         select.innerHTML += `
-          <option value="${member.pseudo}">${member.pseudo}</option>
+          <option value="${member.pseudo}" ${selected}>${member.pseudo}</option>
         `;
       });
+    }
+
+    async function loadParticipantWinnerPrediction(pseudo) {
+      if (!pseudo) return null;
+
+      const predictionSnap = await getDoc(
+        doc(db, "groups", groupCode, "winnerPredictions", pseudo)
+      );
+
+      return predictionSnap.exists() ? predictionSnap.data() : null;
+    }
+
+    async function loadParticipantGroupPrediction(pseudo) {
+      if (!pseudo) return null;
+
+      const predictionSnap = await getDoc(
+        doc(db, "groups", groupCode, "groupPredictions", pseudo)
+      );
+
+      return predictionSnap.exists() ? predictionSnap.data() : null;
+    }
+
+    function renderAdminWinnerPredictionForm(existingPrediction = null) {
+      const teams = getWinnerChallengeTeams();
+      const select = $("#select-admin-winner-prediction");
+      const currentBox = $("#admin-winner-prediction-current");
+      const pseudo = getSelectedPseudo();
+
+      if (!select || !currentBox) return;
+
+      select.innerHTML = `<option value="">Choisir le champion du participant</option>`;
+
+      teams.forEach((item) => {
+        const selected =
+          existingPrediction && existingPrediction.team === item.team
+            ? "selected"
+            : "";
+
+        select.innerHTML += `
+          <option value="${item.team}" ${selected}>
+            ${item.team} — ${item.points} pts
+          </option>
+        `;
+      });
+
+      if (!pseudo) {
+        currentBox.innerHTML = `
+          Choisis un participant existant ou saisis un nouveau pseudo pour rattraper son choix Champion.
+        `;
+        return;
+      }
+
+      if (existingPrediction && existingPrediction.team) {
+        currentBox.innerHTML = `
+          Choix Champion actuel de <strong>${pseudo}</strong> :
+          <strong>${existingPrediction.team}</strong>
+          — <strong>${existingPrediction.pointsIfCorrect || getWinnerChallengePoints(existingPrediction.team)} pts</strong> si champion.
+        `;
+      } else {
+        currentBox.innerHTML = `
+          Aucun choix Champion enregistré pour <strong>${pseudo}</strong>.
+        `;
+      }
+    }
+
+    function renderParticipantGroupStandingCard(groupLetter, existingGroups = {}) {
+      const teams = getTeamsByGroup(groupLetter);
+      const existingStanding =
+        existingGroups && existingGroups[groupLetter]
+          ? existingGroups[groupLetter]
+          : [];
+
+      let rowsHtml = "";
+
+      for (let rank = 1; rank <= teams.length; rank++) {
+        const selectedTeam = existingStanding[rank - 1] || "";
+        let optionsHtml = `<option value="">Choisir</option>`;
+
+        teams.forEach((team) => {
+          const selected = selectedTeam === team ? "selected" : "";
+
+          optionsHtml += `
+            <option value="${team}" ${selected}>${team}</option>
+          `;
+        });
+
+        rowsHtml += `
+          <div class="admin-group-row">
+            <span class="admin-group-rank">${rank}</span>
+            <select
+              class="admin-group-select admin-pred-group-select"
+              data-group="${groupLetter}"
+              data-rank="${rank}"
+            >
+              ${optionsHtml}
+            </select>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="admin-group-card">
+          <h4>Groupe ${groupLetter}</h4>
+
+          <div class="admin-group-teams">
+            ${teams.join(" · ")}
+          </div>
+
+          ${rowsHtml}
+        </div>
+      `;
+    }
+
+    function renderAdminGroupPredictionForm(existingPrediction = null) {
+      const container = $("#admin-participant-group-standings-list");
+      const currentBox = $("#admin-participant-groups-current");
+      const errorBox = $("#admin-participant-groups-error");
+      const pseudo = getSelectedPseudo();
+
+      if (!container || !currentBox) return;
+      if (errorBox) errorBox.textContent = "";
+
+      const existingGroups =
+        existingPrediction && existingPrediction.groups
+          ? existingPrediction.groups
+          : {};
+
+      let html = "";
+
+      getGroupLetters().forEach((groupLetter) => {
+        html += renderParticipantGroupStandingCard(groupLetter, existingGroups);
+      });
+
+      container.innerHTML = html;
+
+      document.querySelectorAll(".admin-pred-group-select").forEach((select) => {
+        select.addEventListener("change", () => {
+          validateParticipantGroupDuplicates(select.dataset.group);
+        });
+      });
+
+      if (!pseudo) {
+        currentBox.innerHTML = `
+          Choisis un participant existant ou saisis un nouveau pseudo pour rattraper ses classements de groupes.
+        `;
+        return;
+      }
+
+      if (existingPrediction && existingPrediction.groups) {
+        currentBox.innerHTML = `
+          Les classements de groupes de <strong>${pseudo}</strong> sont déjà enregistrés.
+          <br>
+          Tu peux les corriger ci-dessous puis réenregistrer.
+        `;
+      } else {
+        currentBox.innerHTML = `
+          Aucun classement de groupes enregistré pour <strong>${pseudo}</strong>.
+        `;
+      }
+    }
+
+    function validateParticipantGroupDuplicates(groupLetter) {
+      const selects = document.querySelectorAll(
+        `.admin-pred-group-select[data-group="${groupLetter}"]`
+      );
+
+      const selectedValues = [];
+
+      selects.forEach((select) => {
+        select.classList.remove("input-error");
+
+        if (select.value) {
+          selectedValues.push(select.value);
+        }
+      });
+
+      selects.forEach((select) => {
+        if (
+          select.value &&
+          selectedValues.filter((value) => value === select.value).length > 1
+        ) {
+          select.classList.add("input-error");
+        }
+      });
+    }
+
+    function getSelectedParticipantGroupStanding(groupLetter) {
+      const teams = [];
+
+      for (let rank = 1; rank <= 4; rank++) {
+        const select = document.querySelector(
+          `.admin-pred-group-select[data-group="${groupLetter}"][data-rank="${rank}"]`
+        );
+
+        if (!select || !select.value) {
+          return null;
+        }
+
+        teams.push(select.value);
+      }
+
+      return teams;
+    }
+
+    function getAllSelectedParticipantGroupStandings() {
+      const result = {};
+
+      for (const groupLetter of getGroupLetters()) {
+        const standing = getSelectedParticipantGroupStanding(groupLetter);
+
+        if (!standing) {
+          throw new Error(`Classement incomplet pour le groupe ${groupLetter}`);
+        }
+
+        if (!isValidGroupStanding(groupLetter, standing)) {
+          throw new Error(`Classement invalide pour le groupe ${groupLetter}`);
+        }
+
+        result[groupLetter] = standing;
+      }
+
+      return result;
+    }
+
+    async function refreshSelectedParticipantChallengeForms() {
+      const pseudo = getSelectedPseudo();
+
+      if (!pseudo) {
+        renderAdminWinnerPredictionForm(null);
+        renderAdminGroupPredictionForm(null);
+        return;
+      }
+
+      try {
+        const [winnerPrediction, groupPrediction] = await Promise.all([
+          loadParticipantWinnerPrediction(pseudo),
+          loadParticipantGroupPrediction(pseudo)
+        ]);
+
+        renderAdminWinnerPredictionForm(winnerPrediction);
+        renderAdminGroupPredictionForm(groupPrediction);
+      } catch (error) {
+        console.error(error);
+        showToast("Erreur lors du chargement des challenges du participant", "error");
+      }
+    }
+
+    async function saveAdminWinnerPrediction() {
+      const pseudo = getSelectedPseudo();
+      const selectedTeam = $("#select-admin-winner-prediction").value;
+
+      if (!pseudo) {
+        showToast("Choisis ou saisis un pseudo", "error");
+        return;
+      }
+
+      if (!selectedTeam) {
+        showToast("Choisis le champion du participant", "error");
+        return;
+      }
+
+      const button = $("#btn-save-admin-winner-prediction");
+      button.disabled = true;
+      button.textContent = "Enregistrement...";
+
+      try {
+        await setDoc(
+          doc(db, "groups", groupCode, "members", pseudo),
+          {
+            pseudo,
+            joinedAt: Date.now(),
+            addedOrUpdatedBy: "admin"
+          },
+          { merge: true }
+        );
+
+        await setDoc(
+          doc(db, "groups", groupCode, "winnerPredictions", pseudo),
+          {
+            pseudo,
+            team: selectedTeam,
+            pointsIfCorrect: getWinnerChallengePoints(selectedTeam),
+            updatedAt: Date.now(),
+            updatedBy: "admin"
+          }
+        );
+
+        await recalculateAndUpdateRanking();
+        await refreshAdminScreen();
+
+        showToast("Choix Champion enregistré par l’admin", "success");
+      } catch (error) {
+        console.error(error);
+        showToast("Erreur lors de l’enregistrement du champion du participant", "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Enregistrer le champion du participant";
+      }
+    }
+
+    async function saveAdminGroupPrediction() {
+      const pseudo = getSelectedPseudo();
+      const errorBox = $("#admin-participant-groups-error");
+      const button = $("#btn-save-admin-group-prediction");
+
+      if (errorBox) errorBox.textContent = "";
+
+      if (!pseudo) {
+        showToast("Choisis ou saisis un pseudo", "error");
+        return;
+      }
+
+      let groupsData = null;
+
+      try {
+        groupsData = getAllSelectedParticipantGroupStandings();
+      } catch (error) {
+        if (errorBox) {
+          errorBox.textContent = error.message || "Vérifie les classements saisis.";
+        }
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "Enregistrement...";
+
+      try {
+        await setDoc(
+          doc(db, "groups", groupCode, "members", pseudo),
+          {
+            pseudo,
+            joinedAt: Date.now(),
+            addedOrUpdatedBy: "admin"
+          },
+          { merge: true }
+        );
+
+        await setDoc(
+          doc(db, "groups", groupCode, "groupPredictions", pseudo),
+          {
+            pseudo,
+            groups: groupsData,
+            updatedAt: Date.now(),
+            updatedBy: "admin"
+          }
+        );
+
+        await recalculateAndUpdateRanking();
+        await refreshAdminScreen();
+
+        showToast("Classements de groupes enregistrés par l’admin", "success");
+      } catch (error) {
+        console.error(error);
+        showToast("Erreur lors de l’enregistrement des groupes du participant", "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Enregistrer les classements du participant";
+      }
     }
 
     function renderWinnerAdminChallenge() {
@@ -1143,6 +1552,7 @@
       renderWinnerAdminChallenge();
       renderAdminGroupStandings();
       renderMatchSelect();
+      await refreshSelectedParticipantChallengeForms();
       await renderAdminResults();
     }
 
@@ -1327,6 +1737,14 @@
     $("#select-match").addEventListener("change", renderSelectedMatchScale);
 
     $("#btn-save-admin-prediction").addEventListener("click", saveAdminPrediction);
+
+    $("#btn-save-admin-winner-prediction").addEventListener("click", saveAdminWinnerPrediction);
+
+    $("#btn-save-admin-group-prediction").addEventListener("click", saveAdminGroupPrediction);
+
+    $("#select-member").addEventListener("change", refreshSelectedParticipantChallengeForms);
+
+    $("#input-new-pseudo").addEventListener("input", refreshSelectedParticipantChallengeForms);
 
     $("#btn-delete-member").addEventListener("click", deleteMemberAndPredictions);
 
