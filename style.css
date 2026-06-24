@@ -1070,3 +1070,112 @@ select.input-error {
     padding: 28px 20px;
   }
 }
+
+/* ============================================================
+   REGROUPEMENT DES MATCHS PAR STATUT
+   ============================================================ */
+
+.match-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.match-section-header {
+  position: sticky;
+  top: 53px;
+  z-index: 5;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-left: 5px solid var(--primary);
+  border-radius: 14px;
+  padding: 12px 16px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.match-section-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.match-section-header p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.match-section-header span {
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--primary);
+  background: #e6f7ed;
+  border-radius: 999px;
+  padding: 5px 10px;
+}
+
+.section-upcoming .match-section-header {
+  border-left-color: var(--primary);
+}
+
+.section-upcoming .match-section-header span {
+  background: #e6f7ed;
+  color: var(--primary);
+}
+
+.section-live .match-section-header {
+  border-left-color: #f59e0b;
+}
+
+.section-live .match-section-header span {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.section-finished .match-section-header {
+  border-left-color: #94a3b8;
+}
+
+.section-finished .match-section-header span {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.match-card.match-finished {
+  opacity: 0.82;
+}
+
+.match-card.match-live {
+  border-color: #f59e0b;
+}
+
+.match-card.match-upcoming:not(.has-prediction) {
+  border-color: #dbeafe;
+}
+
+.match-card.match-upcoming:not(.has-prediction):hover {
+  border-color: var(--primary);
+}
+
+@media (max-width: 600px) {
+  .match-section-header {
+    top: 49px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .match-section-header h3 {
+    font-size: 15px;
+  }
+
+  .match-section-header p {
+    font-size: 11px;
+  }
+}
