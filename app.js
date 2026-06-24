@@ -886,17 +886,11 @@ function renderMatches() {
 
   container.innerHTML = "";
 
-  let lastStage = "";
+  const upcomingMatches = [];
+  const liveMatches = [];
+  const finishedMatches = [];
 
   MATCHES.forEach((match) => {
-    if (match.stage !== lastStage) {
-      const stageTitle = document.createElement("div");
-      stageTitle.className = "stage-title";
-      stageTitle.textContent = match.stage;
-      container.appendChild(stageTitle);
-      lastStage = match.stage;
-    }
-
     const started = isMatchStarted(match);
     const result = liveMatchesData[match.id];
 
@@ -907,134 +901,215 @@ function renderMatches() {
       result.away !== undefined &&
       result.away !== null;
 
-    const myPred = predictions[match.id];
-
-    const card = document.createElement("div");
-    card.className = "match-card";
-
-    if (started) card.classList.add("locked");
-    if (myPred) card.classList.add("has-prediction");
-
-    const scale = getMatchPointsScale(match);
-
-    const pointsScaleHtml = `
-      <div class="match-scale-box">
-        <div class="match-scale-title">Barème</div>
-
-        <div class="match-scale-line">
-          <span>${scale["1"].label}</span>
-          <strong>${scale["1"].points} pts</strong>
-        </div>
-
-        <div class="match-scale-line">
-          <span>Nul</span>
-          <strong>${scale["N"].points} pts</strong>
-        </div>
-
-        <div class="match-scale-line">
-          <span>${scale["2"].label}</span>
-          <strong>${scale["2"].points} pts</strong>
-        </div>
-
-        <div class="match-scale-note">
-          ${
-            scale["1"].scoringMode === "legacy"
-              ? "Score exact : 5 pts"
-              : "Score exact : +3 pts"
-          }
-        </div>
-      </div>
-    `;
-
-    let statusHtml = "";
-
     if (hasResult) {
-      statusHtml = `<span class="match-status status-finished">Terminé</span>`;
+      finishedMatches.push(match);
     } else if (started) {
-      statusHtml = `<span class="match-status status-locked">En cours / Terminé</span>`;
+      liveMatches.push(match);
     } else {
-      statusHtml = `<span class="match-status status-open">Ouvert</span>`;
+      upcomingMatches.push(match);
     }
+  });
 
-    let bottomInfo = "";
+  function renderMatchSection(title, subtitle, matches, sectionClass) {
+    if (matches.length === 0) return;
 
-    if (hasResult) {
-      bottomInfo = `<span class="match-result-tag">Résultat : ${result.home} - ${result.away}</span>`;
+    const section = document.createElement("div");
+    section.className = `match-section ${sectionClass}`;
 
-      if (myPred) {
-        const predText = formatPredictionText(myPred, match);
-        bottomInfo += `<span class="match-prediction-tag">✓ ${predText}</span>`;
+    const sectionHeader = document.createElement("div");
+    sectionHeader.className = "match-section-header";
 
-        const calc = calculatePoints(myPred, result.home, result.away, match);
-
-        if (calc) {
-          const cls =
-            calc.points === 0
-              ? "win-zero"
-              : calc.exactBonus > 0 || calc.label === "Score exact"
-                ? "win-exact"
-                : "win-result";
-
-          let detail = "";
-
-          if (calc.points > 0) {
-            if (calc.scoringMode === "legacy") {
-              detail = ` — ${calc.label}`;
-            } else {
-              detail = ` — ${calc.label} : ${calc.basePoints} pts`;
-
-              if (calc.exactBonus > 0) {
-                detail += ` + ${calc.exactBonus} bonus`;
-              }
-            }
-          } else {
-            detail = ` — ${calc.label}`;
-          }
-
-          bottomInfo += `<span class="match-points-tag ${cls}">+${calc.points} pts${detail}</span>`;
-        }
-      } else {
-        bottomInfo += `<span class="match-prediction-tag" style="color:#9ca3af;">Aucun pronostic saisi</span>`;
-      }
-    } else if (myPred) {
-      const predText = formatPredictionText(myPred, match);
-      bottomInfo = `<span class="match-prediction-tag">✓ ${predText}</span>`;
-    } else if (!started) {
-      bottomInfo = `<span class="match-prediction-tag" style="color:#9ca3af;">Pas encore pronostiqué</span>`;
-    } else {
-      bottomInfo = `<span class="match-prediction-tag" style="color:#9ca3af;">Aucun pronostic saisi</span>`;
-    }
-
-    card.innerHTML = `
-      <div class="match-teams">
-        <div class="team home">
-          <span class="team-flag">${match.homeFlag}</span>
-          <span>${match.home}</span>
-        </div>
-
-        <span class="match-vs">VS</span>
-
-        <div class="team away">
-          <span>${match.away}</span>
-          <span class="team-flag">${match.awayFlag}</span>
-        </div>
+    sectionHeader.innerHTML = `
+      <div>
+        <h3>${title}</h3>
+        <p>${subtitle}</p>
       </div>
-
-      ${pointsScaleHtml}
-
-      <div class="match-meta">
-        <span class="match-date">${formatDate(match.date)}</span>
-        ${statusHtml}
-        ${bottomInfo}
-      </div>
+      <span>${matches.length} match${matches.length > 1 ? "s" : ""}</span>
     `;
 
-    if (!started) {
-      card.addEventListener("click", () => openPredictionModal(match));
-    }
+    section.appendChild(sectionHeader);
 
-    container.appendChild(card);
-  });
+    let lastStage = "";
+
+    matches.forEach((match) => {
+      if (match.stage !== lastStage) {
+        const stageTitle = document.createElement("div");
+        stageTitle.className = "stage-title";
+        stageTitle.textContent = match.stage;
+        section.appendChild(stageTitle);
+        lastStage = match.stage;
+      }
+
+      const started = isMatchStarted(match);
+      const result = liveMatchesData[match.id];
+
+      const hasResult =
+        result &&
+        result.home !== undefined &&
+        result.home !== null &&
+        result.away !== undefined &&
+        result.away !== null;
+
+      const myPred = predictions[match.id];
+
+      const card = document.createElement("div");
+      card.className = "match-card";
+
+      if (started) card.classList.add("locked");
+      if (myPred) card.classList.add("has-prediction");
+
+      if (hasResult) {
+        card.classList.add("match-finished");
+      } else if (started) {
+        card.classList.add("match-live");
+      } else {
+        card.classList.add("match-upcoming");
+      }
+
+      const scale = getMatchPointsScale(match);
+
+      const pointsScaleHtml = `
+        <div class="match-scale-box">
+          <div class="match-scale-title">Barème</div>
+
+          <div class="match-scale-line">
+            <span>${scale["1"].label}</span>
+            <strong>${scale["1"].points} pts</strong>
+          </div>
+
+          <div class="match-scale-line">
+            <span>Nul</span>
+            <strong>${scale["N"].points} pts</strong>
+          </div>
+
+          <div class="match-scale-line">
+            <span>${scale["2"].label}</span>
+            <strong>${scale["2"].points} pts</strong>
+          </div>
+
+          <div class="match-scale-note">
+            ${
+              scale["1"].scoringMode === "legacy"
+                ? "Score exact : 5 pts"
+                : "Score exact : +3 pts"
+            }
+          </div>
+        </div>
+      `;
+
+      let statusHtml = "";
+
+      if (hasResult) {
+        statusHtml = `<span class="match-status status-finished">Terminé</span>`;
+      } else if (started) {
+        statusHtml = `<span class="match-status status-locked">En cours / verrouillé</span>`;
+      } else {
+        statusHtml = `<span class="match-status status-open">Ouvert</span>`;
+      }
+
+      let bottomInfo = "";
+
+      if (hasResult) {
+        bottomInfo = `<span class="match-result-tag">Résultat : ${result.home} - ${result.away}</span>`;
+
+        if (myPred) {
+          const predText = formatPredictionText(myPred, match);
+          bottomInfo += `<span class="match-prediction-tag">✓ ${predText}</span>`;
+
+          const calc = calculatePoints(myPred, result.home, result.away, match);
+
+          if (calc) {
+            const cls =
+              calc.points === 0
+                ? "win-zero"
+                : calc.exactBonus > 0 || calc.label === "Score exact"
+                  ? "win-exact"
+                  : "win-result";
+
+            let detail = "";
+
+            if (calc.points > 0) {
+              if (calc.scoringMode === "legacy") {
+                detail = ` — ${calc.label}`;
+              } else {
+                detail = ` — ${calc.label} : ${calc.basePoints} pts`;
+
+                if (calc.exactBonus > 0) {
+                  detail += ` + ${calc.exactBonus} bonus`;
+                }
+              }
+            } else {
+              detail = ` — ${calc.label}`;
+            }
+
+            bottomInfo += `<span class="match-points-tag ${cls}">+${calc.points} pts${detail}</span>`;
+          }
+        } else {
+          bottomInfo += `<span class="match-prediction-tag" style="color:#9ca3af;">Aucun pronostic saisi</span>`;
+        }
+      } else if (myPred) {
+        const predText = formatPredictionText(myPred, match);
+        bottomInfo = `<span class="match-prediction-tag">✓ ${predText}</span>`;
+      } else if (!started) {
+        bottomInfo = `<span class="match-prediction-tag" style="color:#9ca3af;">Pas encore pronostiqué</span>`;
+      } else {
+        bottomInfo = `<span class="match-prediction-tag" style="color:#9ca3af;">Aucun pronostic saisi</span>`;
+      }
+
+      card.innerHTML = `
+        <div class="match-teams">
+          <div class="team home">
+            <span class="team-flag">${match.homeFlag}</span>
+            <span>${match.home}</span>
+          </div>
+
+          <span class="match-vs">VS</span>
+
+          <div class="team away">
+            <span>${match.away}</span>
+            <span class="team-flag">${match.awayFlag}</span>
+          </div>
+        </div>
+
+        ${pointsScaleHtml}
+
+        <div class="match-meta">
+          <span class="match-date">${formatDate(match.date)}</span>
+          ${statusHtml}
+          ${bottomInfo}
+        </div>
+      `;
+
+      if (!started) {
+        card.addEventListener("click", () => openPredictionModal(match));
+      }
+
+      section.appendChild(card);
+    });
+
+    container.appendChild(section);
+  }
+
+  renderMatchSection(
+    "🟢 Matchs à pronostiquer",
+    "Les matchs ouverts sont affichés en premier pour faciliter la saisie.",
+    upcomingMatches,
+    "section-upcoming"
+  );
+
+  renderMatchSection(
+    "🟠 Matchs en cours / verrouillés",
+    "Ces matchs ont commencé : le pronostic n’est plus modifiable.",
+    liveMatches,
+    "section-live"
+  );
+
+  renderMatchSection(
+    "⚪ Matchs terminés",
+    "Résultats connus et points calculés.",
+    finishedMatches,
+    "section-finished"
+  );
 }
 
 /* ============================================================
