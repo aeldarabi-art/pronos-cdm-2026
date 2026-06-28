@@ -1143,7 +1143,16 @@ function renderMatchesInContainer(containerSelector, matchesToRender, options = 
 }
 
 function renderMatches() {
-  renderMatchesInContainer("#matches-list", MATCHES);
+  const groupMatches = MATCHES.filter((match) => !isKnockoutMatch(match));
+
+  renderMatchesInContainer("#matches-list", groupMatches, {
+    upcomingTitle: "🟢 Matchs de groupes à pronostiquer",
+    upcomingSubtitle: "Cet onglet affiche uniquement la phase de groupes.",
+    liveTitle: "🟠 Matchs de groupes en cours / verrouillés",
+    liveSubtitle: "Ces matchs ont commencé : le pronostic n’est plus modifiable.",
+    finishedTitle: "⚪ Matchs de groupes terminés",
+    finishedSubtitle: "Résultats connus et points calculés."
+  });
 }
 
 function renderKnockoutMatches() {
