@@ -1179,3 +1179,43 @@ select.input-error {
     font-size: 11px;
   }
 }
+
+/* ============================================================
+   ONGLET ELIMINATION DIRECTE
+   ============================================================ */
+
+.knockout-intro {
+  border-left: 5px solid #7c3aed;
+}
+
+.knockout-badge {
+  width: fit-content;
+  max-width: 180px;
+  text-align: center;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 800;
+  color: #6d28d9;
+  background: #f3e8ff;
+  border-radius: 999px;
+  padding: 5px 9px;
+}
+
+.match-card.match-knockout {
+  border-left: 4px solid #7c3aed;
+}
+
+#tab-knockout .section-upcoming .match-section-header {
+  border-left-color: #7c3aed;
+}
+
+#tab-knockout .section-upcoming .match-section-header span {
+  background: #f3e8ff;
+  color: #6d28d9;
+}
+
+@media (max-width: 480px) {
+  .knockout-badge {
+    max-width: 100%;
+  }
+}
