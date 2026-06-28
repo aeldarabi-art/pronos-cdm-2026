@@ -249,6 +249,7 @@ function listenToResults() {
     });
 
     renderMatches();
+    renderKnockoutMatches();
     recalculateAndUpdateRanking();
   });
 }
@@ -879,8 +880,15 @@ function listenToMembers() {
    RENDU - MATCHS
    ============================================================ */
 
-function renderMatches() {
-  const container = $("#matches-list");
+function isKnockoutMatch(match) {
+  return (
+    match.phase === "knockout" ||
+    /élimination|elimination|finale|quart|demi|huitième|huitieme|16e|1\/16/i.test(match.stage || "")
+  );
+}
+
+function renderMatchesInContainer(containerSelector, matchesToRender, options = {}) {
+  const container = $(containerSelector);
 
   if (!container) return;
 
@@ -890,7 +898,7 @@ function renderMatches() {
   const liveMatches = [];
   const finishedMatches = [];
 
-  MATCHES.forEach((match) => {
+  matchesToRender.forEach((match) => {
     const started = isMatchStarted(match);
     const result = liveMatchesData[match.id];
 
@@ -909,6 +917,19 @@ function renderMatches() {
       upcomingMatches.push(match);
     }
   });
+
+  if (
+    upcomingMatches.length === 0 &&
+    liveMatches.length === 0 &&
+    finishedMatches.length === 0
+  ) {
+    container.innerHTML = `
+      <div class="empty-state">
+        Aucun match à afficher pour le moment.
+      </div>
+    `;
+    return;
+  }
 
   function renderMatchSection(title, subtitle, matches, sectionClass) {
     if (matches.length === 0) return;
@@ -964,6 +985,10 @@ function renderMatches() {
         card.classList.add("match-live");
       } else {
         card.classList.add("match-upcoming");
+      }
+
+      if (isKnockoutMatch(match)) {
+        card.classList.add("match-knockout");
       }
 
       const scale = getMatchPointsScale(match);
@@ -1056,6 +1081,10 @@ function renderMatches() {
         bottomInfo = `<span class="match-prediction-tag" style="color:#9ca3af;">Aucun pronostic saisi</span>`;
       }
 
+      const knockoutBadge = isKnockoutMatch(match)
+        ? `<span class="knockout-badge">Élimination directe</span>`
+        : "";
+
       card.innerHTML = `
         <div class="match-teams">
           <div class="team home">
@@ -1075,6 +1104,7 @@ function renderMatches() {
 
         <div class="match-meta">
           <span class="match-date">${formatDate(match.date)}</span>
+          ${knockoutBadge}
           ${statusHtml}
           ${bottomInfo}
         </div>
@@ -1091,25 +1121,42 @@ function renderMatches() {
   }
 
   renderMatchSection(
-    "🟢 Matchs à pronostiquer",
-    "Les matchs ouverts sont affichés en premier pour faciliter la saisie.",
+    options.upcomingTitle || "🟢 Matchs à pronostiquer",
+    options.upcomingSubtitle || "Les matchs ouverts sont affichés en premier pour faciliter la saisie.",
     upcomingMatches,
     "section-upcoming"
   );
 
   renderMatchSection(
-    "🟠 Matchs en cours / verrouillés",
-    "Ces matchs ont commencé : le pronostic n’est plus modifiable.",
+    options.liveTitle || "🟠 Matchs en cours / verrouillés",
+    options.liveSubtitle || "Ces matchs ont commencé : le pronostic n’est plus modifiable.",
     liveMatches,
     "section-live"
   );
 
   renderMatchSection(
-    "⚪ Matchs terminés",
-    "Résultats connus et points calculés.",
+    options.finishedTitle || "⚪ Matchs terminés",
+    options.finishedSubtitle || "Résultats connus et points calculés.",
     finishedMatches,
     "section-finished"
   );
+}
+
+function renderMatches() {
+  renderMatchesInContainer("#matches-list", MATCHES);
+}
+
+function renderKnockoutMatches() {
+  const knockoutMatches = MATCHES.filter(isKnockoutMatch);
+
+  renderMatchesInContainer("#knockout-matches-list", knockoutMatches, {
+    upcomingTitle: "⚔️ Matchs à élimination directe à pronostiquer",
+    upcomingSubtitle: "Les 1/16es de finale et les tours à élimination directe sont regroupés ici.",
+    liveTitle: "🟠 Matchs à élimination directe en cours / verrouillés",
+    liveSubtitle: "Ces matchs ont commencé : le pronostic n’est plus modifiable.",
+    finishedTitle: "⚪ Matchs à élimination directe terminés",
+    finishedSubtitle: "Résultats connus et points calculés."
+  });
 }
 
 /* ============================================================
@@ -1285,6 +1332,7 @@ async function handleSavePrediction() {
     showToast("Pronostic enregistré !", "success");
     closeModal();
     renderMatches();
+    renderKnockoutMatches();
   } catch (error) {
     console.error(error);
     $("#modal-error").textContent = "Erreur lors de l'enregistrement.";
@@ -1310,6 +1358,10 @@ function switchTab(tabName) {
 
   if (tabName === "winner") {
     renderWinnerChallenge();
+  }
+
+  if (tabName === "knockout") {
+    renderKnockoutMatches();
   }
 
   if (tabName === "groups") {
@@ -1378,6 +1430,7 @@ async function enterGroup() {
   await loadGroupStandingsResult();
 
   renderMatches();
+  renderKnockoutMatches();
   renderWinnerChallenge();
   renderGroupStandingsChallenge();
 
