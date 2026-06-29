@@ -407,6 +407,29 @@
       </div>
     </div>
 
+    <div class="admin-section-title">Réinitialisation des scores réels</div>
+
+    <div class="admin-card">
+      <h3>Vider les faux scores des matchs à élimination directe</h3>
+
+      <p class="muted">
+        À utiliser si des pronostics ont été saisis par erreur dans la zone des scores réels.
+        Cette action conserve uniquement le résultat réel du match Afrique du Sud - Canada
+        et vide tous les autres scores réels des matchs à élimination directe.
+      </p>
+
+      <div class="scale-box">
+        Résultat conservé : <strong>Afrique du Sud 0 - 1 Canada</strong>.
+        <br>
+        Les autres matchs à élimination directe repasseront en statut “Ouvert” ou “En cours / verrouillé”
+        selon leur horaire.
+      </div>
+
+      <button id="btn-reset-knockout-results" class="btn btn-danger" style="margin-top:14px;">
+        Vider les scores réels des éliminations directes
+      </button>
+    </div>
+
     <div class="admin-section-title">Saisie des scores réels</div>
 
     <div id="admin-matches"></div>
@@ -1689,6 +1712,73 @@
       }
     }
 
+
+    async function resetKnockoutResultsExceptSouthAfricaCanada() {
+      const button = $("#btn-reset-knockout-results");
+
+      if (!groupCode) {
+        showToast("Charge d’abord le groupe avant de réinitialiser les scores.", "error");
+        return;
+      }
+
+      const confirmed = confirm(
+        "Confirmer la réinitialisation des scores réels des matchs à élimination directe ?\n\n" +
+        "Cette action va :\n" +
+        "- conserver Afrique du Sud 0 - 1 Canada ;\n" +
+        "- supprimer les scores réels des autres matchs à élimination directe ;\n" +
+        "- recalculer le classement général.\n\n" +
+        "À utiliser uniquement si des pronostics ont été saisis par erreur comme résultats réels."
+      );
+
+      if (!confirmed) return;
+
+      button.disabled = true;
+      button.textContent = "Réinitialisation...";
+
+      try {
+        const knockoutMatches = MATCHES.filter((match) => match.phase === "knockout");
+        const southAfricaCanadaMatch = knockoutMatches.find(
+          (match) => match.home === "Afrique du Sud" && match.away === "Canada"
+        );
+
+        if (!southAfricaCanadaMatch) {
+          throw new Error("Match Afrique du Sud - Canada introuvable dans matches.json");
+        }
+
+        const actions = [];
+
+        knockoutMatches.forEach((match) => {
+          if (match.id === southAfricaCanadaMatch.id) {
+            actions.push(
+              setDoc(doc(db, "groups", groupCode, "results", match.id), {
+                home: 0,
+                away: 1,
+                updatedAt: Date.now(),
+                updatedBy: "admin-reset"
+              })
+            );
+          } else {
+            actions.push(
+              deleteDoc(doc(db, "groups", groupCode, "results", match.id))
+            );
+          }
+        });
+
+        await Promise.all(actions);
+
+        await recalculateAndUpdateRanking();
+        await refreshAdminScreen();
+
+        showToast("Scores élimination directe réinitialisés", "success");
+      } catch (error) {
+        console.error(error);
+        showToast("Erreur lors de la réinitialisation des scores", "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Vider les scores réels des éliminations directes";
+      }
+    }
+
     function setupEventListeners() {
       $("#btn-admin-login").addEventListener("click", checkAdminCode);
 
@@ -1726,6 +1816,11 @@
 
       $("#btn-save-real-winner").addEventListener("click", saveRealWinner);
       $("#btn-save-real-groups").addEventListener("click", saveRealGroupStandings);
+
+      const resetKnockoutButton = $("#btn-reset-knockout-results");
+      if (resetKnockoutButton) {
+        resetKnockoutButton.addEventListener("click", resetKnockoutResultsExceptSouthAfricaCanada);
+      }
     }
 
     async function initAdmin() {
