@@ -806,5 +806,85 @@
     "away": "Ghana",
     "homeFlag": "🇨🇴",
     "awayFlag": "🇬🇭"
+  },
+  {
+    "id": "m89",
+    "stage": "Élimination directe - 1/8e de finale",
+    "phase": "knockout",
+    "date": "2026-07-04T18:00:00+01:00",
+    "home": "Canada",
+    "away": "Maroc",
+    "homeFlag": "🇨🇦",
+    "awayFlag": "🇲🇦"
+  },
+  {
+    "id": "m90",
+    "stage": "Élimination directe - 1/8e de finale",
+    "phase": "knockout",
+    "date": "2026-07-04T22:00:00+01:00",
+    "home": "Paraguay",
+    "away": "France",
+    "homeFlag": "🇵🇾",
+    "awayFlag": "🇫🇷"
+  },
+  {
+    "id": "m91",
+    "stage": "Élimination directe - 1/8e de finale",
+    "phase": "knockout",
+    "date": "2026-07-05T21:00:00+01:00",
+    "home": "Brésil",
+    "away": "Norvège",
+    "homeFlag": "🇧🇷",
+    "awayFlag": "🇳🇴"
+  },
+  {
+    "id": "m92",
+    "stage": "Élimination directe - 1/8e de finale",
+    "phase": "knockout",
+    "date": "2026-07-06T01:00:00+01:00",
+    "home": "Mexique",
+    "away": "Angleterre",
+    "homeFlag": "🇲🇽",
+    "awayFlag": "🏴"
+  },
+  {
+    "id": "m93",
+    "stage": "Élimination directe - 1/8e de finale",
+    "phase": "knockout",
+    "date": "2026-07-06T20:00:00+01:00",
+    "home": "Portugal",
+    "away": "Espagne",
+    "homeFlag": "🇵🇹",
+    "awayFlag": "🇪🇸"
+  },
+  {
+    "id": "m94",
+    "stage": "Élimination directe - 1/8e de finale",
+    "phase": "knockout",
+    "date": "2026-07-06T22:00:00+01:00",
+    "home": "États-Unis",
+    "away": "Belgique",
+    "homeFlag": "🇺🇸",
+    "awayFlag": "🇧🇪"
+  },
+  {
+    "id": "m95",
+    "stage": "Élimination directe - 1/8e de finale",
+    "phase": "knockout",
+    "date": "2026-07-07T17:00:00+01:00",
+    "home": "Vainqueur Argentine / Cap-Vert",
+    "away": "Vainqueur Australie / Égypte",
+    "homeFlag": "🏳️",
+    "awayFlag": "🏳️"
+  },
+  {
+    "id": "m96",
+    "stage": "Élimination directe - 1/8e de finale",
+    "phase": "knockout",
+    "date": "2026-07-07T21:00:00+01:00",
+    "home": "Suisse",
+    "away": "Vainqueur Colombie / Ghana",
+    "homeFlag": "🇨🇭",
+    "awayFlag": "🏳️"
   }
 ]
