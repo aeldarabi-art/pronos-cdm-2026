@@ -872,10 +872,10 @@
     "stage": "Élimination directe - 1/8e de finale",
     "phase": "knockout",
     "date": "2026-07-07T17:00:00+01:00",
-    "home": "Vainqueur Argentine / Cap-Vert",
-    "away": "Vainqueur Australie / Égypte",
-    "homeFlag": "🏳️",
-    "awayFlag": "🏳️"
+    "home": "Argentine",
+    "away": "Égypte",
+    "homeFlag": "🇦🇷",
+    "awayFlag": "🇪🇬"
   },
   {
     "id": "m96",
@@ -883,8 +883,10 @@
     "phase": "knockout",
     "date": "2026-07-07T21:00:00+01:00",
     "home": "Suisse",
-    "away": "Vainqueur Colombie / Ghana",
+    "away": "Colombie",
     "homeFlag": "🇨🇭",
-    "awayFlag": "🏳️"
-  }
-]
+    "awayFlag": "🇨🇴"
+  },
+  {
+    "id": "m97",
+    "stage": "Élimination directe - 
