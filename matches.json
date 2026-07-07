@@ -889,4 +889,82 @@
   },
   {
     "id": "m97",
-    "stage": "Élimination directe - 
+    "stage": "Élimination directe - 1/4 de finale",
+    "phase": "knockout",
+    "date": "2026-07-09T21:00:00+01:00",
+    "home": "France",
+    "away": "Maroc",
+    "homeFlag": "🇫🇷",
+    "awayFlag": "🇲🇦"
+  },
+  {
+    "id": "m98",
+    "stage": "Élimination directe - 1/4 de finale",
+    "phase": "knockout",
+    "date": "2026-07-10T20:00:00+01:00",
+    "home": "Espagne",
+    "away": "Belgique",
+    "homeFlag": "🇪🇸",
+    "awayFlag": "🇧🇪"
+  },
+  {
+    "id": "m99",
+    "stage": "Élimination directe - 1/4 de finale",
+    "phase": "knockout",
+    "date": "2026-07-11T22:00:00+01:00",
+    "home": "Norvège",
+    "away": "Angleterre",
+    "homeFlag": "🇳🇴",
+    "awayFlag": "🏴"
+  },
+  {
+    "id": "m100",
+    "stage": "Élimination directe - 1/4 de finale",
+    "phase": "knockout",
+    "date": "2026-07-12T02:00:00+01:00",
+    "home": "Vainqueur Argentine / Égypte",
+    "away": "Vainqueur Suisse / Colombie",
+    "homeFlag": "🏆",
+    "awayFlag": "🏆"
+  },
+  {
+    "id": "m101",
+    "stage": "Élimination directe - Demi-finale",
+    "phase": "knockout",
+    "date": "2026-07-14T20:00:00+01:00",
+    "home": "Vainqueur France / Maroc",
+    "away": "Vainqueur Espagne / Belgique",
+    "homeFlag": "🏆",
+    "awayFlag": "🏆"
+  },
+  {
+    "id": "m102",
+    "stage": "Élimination directe - Demi-finale",
+    "phase": "knockout",
+    "date": "2026-07-15T20:00:00+01:00",
+    "home": "Vainqueur Norvège / Angleterre",
+    "away": "Vainqueur m100",
+    "homeFlag": "🏆",
+    "awayFlag": "🏆"
+  },
+  {
+    "id": "m103",
+    "stage": "Élimination directe - Match pour la 3e place",
+    "phase": "knockout",
+    "date": "2026-07-18T22:00:00+01:00",
+    "home": "Perdant demi-finale 1",
+    "away": "Perdant demi-finale 2",
+    "homeFlag": "🥉",
+    "awayFlag": "🥉"
+  },
+  {
+    "id": "m104",
+    "stage": "Élimination directe - Finale",
+    "phase": "knockout",
+    "date": "2026-07-19T20:00:00+01:00",
+    "home": "Vainqueur demi-finale 1",
+    "away": "Vainqueur demi-finale 2",
+    "homeFlag": "🏆",
+    "awayFlag": "🏆"
+  }
+]
