@@ -922,38 +922,38 @@
     "stage": "Élimination directe - 1/4 de finale",
     "phase": "knockout",
     "date": "2026-07-12T02:00:00+01:00",
-    "home": "Vainqueur Argentine / Égypte",
-    "away": "Vainqueur Suisse / Colombie",
-    "homeFlag": "🏆",
-    "awayFlag": "🏆"
+    "home": "Argentine",
+    "away": "Suisse",
+    "homeFlag": "🇦🇷",
+    "awayFlag": "🇨🇭"
   },
   {
     "id": "m101",
     "stage": "Élimination directe - Demi-finale",
     "phase": "knockout",
     "date": "2026-07-14T20:00:00+01:00",
-    "home": "Vainqueur France / Maroc",
-    "away": "Vainqueur Espagne / Belgique",
-    "homeFlag": "🏆",
-    "awayFlag": "🏆"
+    "home": "France",
+    "away": "Espagne",
+    "homeFlag": "🇫🇷",
+    "awayFlag": "🇪🇸"
   },
   {
     "id": "m102",
     "stage": "Élimination directe - Demi-finale",
     "phase": "knockout",
     "date": "2026-07-15T20:00:00+01:00",
-    "home": "Vainqueur Norvège / Angleterre",
-    "away": "Vainqueur m100",
-    "homeFlag": "🏆",
-    "awayFlag": "🏆"
+    "home": "Angleterre",
+    "away": "Argentine",
+    "homeFlag": "🏴",
+    "awayFlag": "🇦🇷"
   },
   {
     "id": "m103",
     "stage": "Élimination directe - Match pour la 3e place",
     "phase": "knockout",
     "date": "2026-07-18T22:00:00+01:00",
-    "home": "Perdant demi-finale 1",
-    "away": "Perdant demi-finale 2",
+    "home": "Perdant France / Espagne",
+    "away": "Perdant Angleterre / Argentine",
     "homeFlag": "🥉",
     "awayFlag": "🥉"
   },
@@ -962,8 +962,8 @@
     "stage": "Élimination directe - Finale",
     "phase": "knockout",
     "date": "2026-07-19T20:00:00+01:00",
-    "home": "Vainqueur demi-finale 1",
-    "away": "Vainqueur demi-finale 2",
+    "home": "Vainqueur France / Espagne",
+    "away": "Vainqueur Angleterre / Argentine",
     "homeFlag": "🏆",
     "awayFlag": "🏆"
   }
